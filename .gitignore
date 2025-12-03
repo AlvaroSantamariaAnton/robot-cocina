@@ -5,6 +5,8 @@ __pycache__/
 *.pyc
 *.py[cod]
 *$py.class
+debug_insert.py
+insertar_recetas_usuario.py
 
 # ==========================================
 # BASES DE DATOS (IMPORTANTE)

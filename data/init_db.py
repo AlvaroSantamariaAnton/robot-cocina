@@ -120,22 +120,32 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
     # ============================
 
     procesos_base = [
-        # nombre, tipo, temperatura, tiempo_segundos, velocidad
-        ("Picar verduras", "manipulacion", 0, 30, 4),
-        ("Trocear verduras", "manipulacion", 0, 40, 3),
-        ("Rallar queso", "manipulacion", 0, 30, 5),
-        ("Triturar frutos secos", "manipulacion", 0, 45, 7),
-        ("Triturar fino", "textura", 0, 45, 6),
-        ("Mezclar suave", "mezcla", 0, 90, 2),
-        ("Amasar masa", "amasado", 0, 600, 2),
-        ("Sofreír suave", "coccion", 120, 300, 1),
-        ("Sofreír intenso", "coccion", 140, 240, 2),
-        ("Cocinar al vapor", "coccion", 100, 600, 0),
-        ("Hervir", "coccion", 100, 900, 0),
-        ("Rehogar verduras", "coccion", 110, 420, 1),
-        ("Calentar salsa", "coccion", 90, 300, 0),
-        ("Emulsionar salsa", "textura", 0, 60, 3),
-        ("Pesar ingredientes", "pesaje", 0, 30, 0),
+        # --- MANIPULACIÓN ---
+        ("Picar verduras", "manipulacion", 0, 20, 4),
+        ("Trocear carne", "manipulacion", 0, 30, 5),
+        ("Rallar queso", "manipulacion", 0, 25, 5),
+        ("Triturar grueso", "manipulacion", 0, 30, 6),
+        ("Triturar fino", "textura", 0, 40, 7),
+
+        # --- MEZCLA Y AMASADO ---
+        ("Mezclar suave", "mezcla", 0, 40, 2),
+        ("Mezclar intenso", "mezcla", 0, 60, 4),
+        ("Amasar masa", "amasado", 0, 300, 3),
+
+        # --- COCCIÓN ---
+        ("Sofreír suave", "coccion", 120, 180, 1),
+        ("Sofreír intenso", "coccion", 140, 120, 2),
+        ("Cocinar al vapor", "coccion", 100, 480, 0),
+        ("Hervir", "coccion", 100, 600, 0),
+
+        # --- TEXTURAS ---
+        ("Preparar puré", "textura", 0, 40, 5),
+        ("Preparar crema", "textura", 0, 50, 4),
+        ("Emulsionar salsa", "textura", 0, 45, 3),
+
+        # --- EXTRA ÚTIL ---
+        ("Pesar ingredientes", "pesaje", 0, 15, 0),
+        ("Templar mezcla", "coccion", 60, 120, 0),
     ]
 
     cur.executemany(
@@ -158,91 +168,88 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
     # Cada receta tiene: nombre, descripcion, lista de pasos (orden, nombre_proceso)
     recetas_definicion = [
         {
-            "nombre": "Verduras salteadas",
-            "descripcion": "Verduras picadas y salteadas con un sofrito suave.",
-            "pasos": [
-                (1, "Picar verduras"),
-                (2, "Sofreír suave"),
-            ],
-        },
-        {
-            "nombre": "Verduras al vapor",
-            "descripcion": "Verduras cocinadas al vapor para una textura ligera.",
-            "pasos": [
-                (1, "Picar verduras"),
-                (2, "Cocinar al vapor"),
-            ],
-        },
-        {
-            "nombre": "Crema de verduras",
-            "descripcion": "Crema suave de verduras trituradas.",
-            "pasos": [
-                (1, "Picar verduras"),
-                (2, "Rehogar verduras"),
-                (3, "Hervir"),
-                (4, "Triturar fino"),
-            ],
-        },
-        {
-            "nombre": "Masa de pan básica",
-            "descripcion": "Masa base para pan o pizza.",
-            "pasos": [
-                (1, "Mezclar suave"),
-                (2, "Amasar masa"),
-            ],
-        },
-        {
-            "nombre": "Salsa caliente",
-            "descripcion": "Salsa calentada lentamente sin llegar a hervir.",
-            "pasos": [
-                (1, "Mezclar suave"),
-                (2, "Calentar salsa"),
-            ],
-        },
-        {
-            "nombre": "Frutos secos triturados",
-            "descripcion": "Frutos secos triturados finos, listos para postres.",
-            "pasos": [
-                (1, "Triturar frutos secos"),
-            ],
-        },
-        {
-            "nombre": "Puré de patata cremoso",
-            "descripcion": "Puré de patata con textura suave, listo para acompañar.",
-            "pasos": [
-                (1, "Pesar ingredientes"),
-                (2, "Cocinar al vapor"),
-                (3, "Triturar fino"),
-            ],
-        },
-        {
-            "nombre": "Salsa de queso rallado",
-            "descripcion": "Salsa cremosa a base de queso rallado.",
-            "pasos": [
-                (1, "Rallar queso"),
-                (2, "Mezclar suave"),
-                (3, "Calentar salsa"),
-                (4, "Emulsionar salsa"),
-            ],
-        },
-        {
-            "nombre": "Guiso de verduras completo",
-            "descripcion": "Receta guiada que combina sofrito, vapor y cocción.",
+            "nombre": "Pisto de verduras",
+            "descripcion": "Verduras picadas y sofritas lentamente hasta quedar tiernas.",
             "pasos": [
                 (1, "Pesar ingredientes"),
                 (2, "Picar verduras"),
-                (3, "Sofreír intenso"),
+                (3, "Sofreír suave"),
                 (4, "Cocinar al vapor"),
-                (5, "Hervir"),
             ],
         },
         {
-            "nombre": "Masa de pizza especial",
-            "descripcion": "Masa de pizza lista para hornear, con amasado prolongado.",
+            "nombre": "Crema suave de verduras",
+            "descripcion": "Crema suave elaborada con verduras hervidas y trituradas.",
+            "pasos": [
+                (1, "Pesar ingredientes"),
+                (2, "Picar verduras"),
+                (3, "Sofreír suave"),
+                (4, "Hervir"),
+                (5, "Triturar fino"),
+                (6, "Preparar crema"),
+            ],
+        },
+        {
+            "nombre": "Masa de pan clásica",
+            "descripcion": "Masa básica esponjosa, perfecta para pan o pizza casera.",
             "pasos": [
                 (1, "Pesar ingredientes"),
                 (2, "Mezclar suave"),
                 (3, "Amasar masa"),
+            ],
+        },
+        {
+            "nombre": "Pasta con salsa cremosa de queso",
+            "descripcion": "Pasta hervida con salsa suave de queso rallado.",
+            "pasos": [
+                (1, "Hervir"),
+                (2, "Rallar queso"),
+                (3, "Mezclar intenso"),
+                (4, "Emulsionar salsa"),
+            ],
+        },
+        {
+            "nombre": "Verduras al vapor con crema ligera",
+            "descripcion": "Verduras cocinadas al vapor acompañadas de una crema ligera.",
+            "pasos": [
+                (1, "Picar verduras"),
+                (2, "Cocinar al vapor"),
+                (3, "Preparar crema"),
+            ],
+        },
+        {
+            "nombre": "Pollo troceado salteado",
+            "descripcion": "Pollo troceado y salteado a fuego intenso.",
+            "pasos": [
+                (1, "Trocear carne"),
+                (2, "Sofreír intenso"),
+            ],
+        },
+        {
+            "nombre": "Puré de patata casero",
+            "descripcion": "Puré suave y cremoso, ideal como guarnición.",
+            "pasos": [
+                (1, "Pesar ingredientes"),
+                (2, "Hervir"),
+                (3, "Preparar puré"),
+            ],
+        },
+        {
+            "nombre": "Frutos secos triturados",
+            "descripcion": "Frutos secos triturados, listos para postres o toppings.",
+            "pasos": [
+                (1, "Triturar grueso"),
+                (2, "Triturar fino"),
+            ],
+        },
+        {
+            "nombre": "Salsa templada de queso",
+            "descripcion": "Salsa caliente y cremosa a base de queso rallado.",
+            "pasos": [
+                (1, "Rallar queso"),
+                (2, "Mezclar suave"),
+                (3, "Templar mezcla"),
+                (4, "Emulsionar salsa"),
             ],
         },
     ]
