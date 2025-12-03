@@ -45,6 +45,11 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
     RECETAS_DISPONIBLES: Dict[str, object] = {}
     ULTIMA_RECETA_SELECCIONADA: dict[str, Optional[str]] = {'label': None}
+    ESTADO_BARRA = {
+        'completada': False,
+        'ultimo_progreso': 0.0,
+        'ultimo_estado': EstadoRobot.ESPERA,
+    }
 
     def construir_etiquetas_recetas() -> List[str]:
         """
@@ -102,9 +107,11 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     def cambiar_encendido(e):
                         if e.value:
                             robot.encender()
+                            ESTADO_BARRA['completada'] = False
                             ui.notify('Robot encendido', color='positive')
                         else:
                             robot.apagar()
+                            ESTADO_BARRA['completada'] = False
                             ui.notify('Robot apagado', color='warning')
 
                     switch_encendido = ui.switch(
@@ -223,6 +230,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ui.notify('El robot está apagado. Enciéndelo primero.', color='negative')
                         return
 
+                    ESTADO_BARRA['completada'] = False
+
                     # 2) Reanudar desde pausa
                     if robot.estado == EstadoRobot.PAUSADO:
                         try:
@@ -238,7 +247,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         return
 
                     # 4) Estado de espera: iniciar desde cero
-                    #    Usamos la receta seleccionada en el desplegable
                     label = seleccion['label_receta'] or ULTIMA_RECETA_SELECCIONADA['label']
                     if not label:
                         ui.notify('Selecciona una receta primero.', color='negative')
@@ -273,6 +281,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ui.notify('No hay cocción en curso que cancelar.', color='warning')
                         return
                     robot.detener_coccion()
+                    ESTADO_BARRA['completada'] = False
                     ui.notify('Cocción cancelada y progreso reiniciado.', color='warning')
 
                 with ui.row().classes('q-mt-md q-gutter-sm'):
@@ -291,6 +300,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     servicios.reinicio_de_fabrica()
                     refrescar_recetas()
                     switch_encendido.value = False
+                    ESTADO_BARRA['completada'] = False
+
                     receta_label.text = "Receta actual: (ninguna)"
                     barra_progreso.value = 0.0
                     progreso_label.text = "Progreso: 0.0 %"
@@ -306,20 +317,51 @@ def registrar_vistas(robot: RobotCocina) -> None:
         # --- Timer para refrescar la UI según el estado del robot ---
         def refrescar_ui_desde_robot():
             # Estado
-            if robot.estado == EstadoRobot.APAGADO:
+            estado_actual = robot.estado
+            if estado_actual == EstadoRobot.APAGADO:
                 estado_label.text = 'Estado: apagado'
-            elif robot.estado == EstadoRobot.ESPERA:
+            elif estado_actual == EstadoRobot.ESPERA:
                 estado_label.text = 'Estado: en espera'
-            elif robot.estado == EstadoRobot.COCINANDO:
+            elif estado_actual == EstadoRobot.COCINANDO:
                 estado_label.text = 'Estado: cocinando'
-            elif robot.estado == EstadoRobot.PAUSADO:
+            elif estado_actual == EstadoRobot.PAUSADO:
                 estado_label.text = 'Estado: pausado'
             else:
                 estado_label.text = 'Estado: error'
 
-            # Progreso
-            barra_progreso.value = robot.progreso / 100.0
-            progreso_label.text = f'Progreso: {robot.progreso:.1f} %'
+            # --- Lógica de barra latcheada ---
+            prog_actual = float(getattr(robot, 'progreso', 0.0) or 0.0)
+            prog_anterior = ESTADO_BARRA.get('ultimo_progreso', 0.0)
+            estado_anterior = ESTADO_BARRA.get('ultimo_estado', EstadoRobot.ESPERA)
+
+            # Solo intentamos marcarla como completada si aún no lo está
+            if not ESTADO_BARRA.get('completada', False):
+                # Caso 1: el modelo llega a 100%
+                if prog_actual >= 99.9:
+                    ESTADO_BARRA['completada'] = True
+                # Caso 2: el modelo resetea a 0 al terminar,
+                # pero veníamos de cocinando con progreso > 0
+                elif (
+                    estado_anterior == EstadoRobot.COCINANDO
+                    and estado_actual in (EstadoRobot.ESPERA, EstadoRobot.PAUSADO)
+                    and prog_anterior > 0.0
+                    and prog_actual == 0.0
+                ):
+                    ESTADO_BARRA['completada'] = True
+
+            # Guardamos valores para la siguiente iteración del timer
+            ESTADO_BARRA['ultimo_progreso'] = prog_actual
+            ESTADO_BARRA['ultimo_estado'] = estado_actual
+
+            # Aplicar a la barra
+            if ESTADO_BARRA.get('completada', False):
+                barra_progreso.value = 1.0
+                progreso_label.text = 'Progreso: 100.0 %'
+                barra_progreso.props('color=green')
+            else:
+                barra_progreso.value = prog_actual / 100.0
+                progreso_label.text = f'Progreso: {prog_actual:.1f} %'
+                barra_progreso.props('color=primary')
 
             # Receta actual y paso actual
             receta = robot.receta_actual
