@@ -114,6 +114,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ESTADO_BARRA['completada'] = False
                             ui.notify('Robot apagado', color='warning')
 
+                        refrescar_ui_desde_robot()
+
                     switch_encendido = ui.switch(
                         'Robot encendido',
                         value=(robot.estado != EstadoRobot.APAGADO),  # valor inicial según estado real
@@ -323,18 +325,53 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
         # --- Timer para refrescar la UI según el estado del robot ---
         def refrescar_ui_desde_robot():
-            # Estado
+            # ==== ESTADO VISUAL DEL ROBOT ====
             estado_actual = robot.estado
-            if estado_actual == EstadoRobot.APAGADO:
-                estado_label.text = 'Estado: apagado'
-            elif estado_actual == EstadoRobot.ESPERA:
-                estado_label.text = 'Estado: en espera'
-            elif estado_actual == EstadoRobot.COCINANDO:
-                estado_label.text = 'Estado: cocinando'
-            elif estado_actual == EstadoRobot.PAUSADO:
-                estado_label.text = 'Estado: pausado'
-            else:
-                estado_label.text = 'Estado: error'
+
+            base = 'text-body1 q-mb-xs q-px-sm q-py-xs rounded-borders'
+
+            # 👇 todas las clases de color que vamos a usar en los estados
+            CLASES_COLOR = (
+                'text-grey-8 text-blue-grey-8 text-green-9 text-amber-9 text-red-9 '
+                'bg-grey-2 bg-blue-grey-1 bg-green-2 bg-amber-2 bg-red-2'
+            )
+
+            estilos_estado = {
+                EstadoRobot.APAGADO: {
+                    'texto': 'Estado: APAGADO',
+                    'clases': 'text-grey-8 bg-grey-2',
+                },
+                EstadoRobot.ESPERA: {
+                    'texto': 'Estado: EN ESPERA',
+                    'clases': 'text-blue-grey-8 bg-blue-grey-1',
+                },
+                EstadoRobot.COCINANDO: {
+                    'texto': 'Estado: COCINANDO',
+                    'clases': 'text-green-9 bg-green-2',
+                },
+                EstadoRobot.PAUSADO: {
+                    'texto': 'Estado: PAUSADO',
+                    'clases': 'text-amber-9 bg-amber-2',
+                },
+                EstadoRobot.ERROR: {
+                    'texto': 'Estado: ERROR',
+                    'clases': 'text-red-9 bg-red-2',
+                },
+            }
+
+            estilo = estilos_estado.get(estado_actual, estilos_estado[EstadoRobot.ERROR])
+
+            # Texto correcto
+            estado_label.text = estilo['texto']
+
+            # 1) nos aseguramos de que las clases base estén (idempotente)
+            estado_label.classes(base)
+
+            # 2) quitamos todas las clases de color posibles
+            estado_label.classes(remove=CLASES_COLOR)
+
+            # 3) añadimos solo las del estado actual
+            estado_label.classes(estilo['clases'])
 
             # --- Lógica de barra latcheada ---
             prog_actual = float(getattr(robot, 'progreso', 0.0) or 0.0)
