@@ -282,6 +282,13 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         return
                     robot.detener_coccion()
                     ESTADO_BARRA['completada'] = False
+                    ESTADO_BARRA['ultimo_progreso'] = 0.0
+                    ESTADO_BARRA['ultimo_estado'] = EstadoRobot.ESPERA
+
+                    barra_progreso.value = 0.0
+                    progreso_label.text = "Progreso: 0.0 %"
+                    texto_paso_label.text = "Paso actual: (ninguno)"
+
                     ui.notify('Cocción cancelada y progreso reiniciado.', color='warning')
 
                 with ui.row().classes('q-mt-md q-gutter-sm'):
