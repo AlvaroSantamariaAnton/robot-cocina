@@ -354,6 +354,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     'Restablece las recetas y procesos de usuario. Los datos de fábrica se mantienen.'
                 ).classes('text-body2 text-grey-6 q-mb-sm')
 
+                # === FUNCIÓN ORIGINAL ===
                 def hacer_reinicio_fabrica():
                     servicios.reinicio_de_fabrica()
                     refrescar_recetas()
@@ -366,9 +367,33 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     texto_paso_label.text = "Paso actual: (ninguno)"
                     ui.notify('Reinicio de fábrica completado.', color='primary')
 
+                # === DIÁLOGO DE CONFIRMACIÓN ===
+                with ui.dialog() as dialog_confirm_reset:
+                    with ui.card().classes('q-pa-md q-gutter-sm'):
+                        ui.label('⚠️ ¿Restablecer ajustes de fábrica?').classes('text-h6')
+                        ui.label('Esta acción no se puede deshacer.').classes('text-body2 text-red-7')
+
+                        with ui.row().classes('justify-end q-gutter-sm q-mt-md'):
+                            ui.button(
+                                'Cancelar',
+                                on_click=dialog_confirm_reset.close,
+                                color='grey'
+                            )
+
+                            def confirmar_reset():
+                                dialog_confirm_reset.close()
+                                hacer_reinicio_fabrica()
+
+                            ui.button(
+                                'Sí, resetear',
+                                on_click=confirmar_reset,
+                                color='red'
+                            ).props('unelevated')
+
+                # === BOTÓN QUE ABRE EL POPUP ===
                 ui.button(
                     'Reinicio de fábrica',
-                    on_click=hacer_reinicio_fabrica,
+                    on_click=dialog_confirm_reset.open,
                     color='orange',
                 ).props('outline icon=restart_alt')
 
@@ -379,7 +404,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
             base = 'text-body1 q-mb-xs q-px-sm q-py-xs rounded-borders'
 
-            # 👇 todas las clases de color que vamos a usar en los estados
+            # todas las clases de color que vamos a usar en los estados
             CLASES_COLOR = (
                 'text-grey-8 text-blue-grey-8 text-green-9 text-amber-9 text-red-9 '
                 'bg-grey-2 bg-blue-grey-2 bg-green-2 bg-amber-2 bg-red-2'
