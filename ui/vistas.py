@@ -144,114 +144,113 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 ui.icon('kitchen').classes('text-h3 text-primary')
 
             # --- Encendido / apagado + resumen ---
-            with ui.row().classes('q-gutter-md items-stretch w-full'):
-                with ui.card().classes('q-pa-md col-12 col-md-7'):
-                    ui.label('Energía y estado').classes('text-h6 q-mb-xs')
-                    ui.label(
-                        'Controla si el robot está encendido y consulta su estado general.'
-                    ).classes('text-body2 text-grey-6 q-mb-sm')
+            with ui.card().classes('q-pa-md col-12 col-md-7'):
+                ui.label('Energía y estado').classes('text-h6 q-mb-xs')
+                ui.label(
+                    'Controla si el robot está encendido y consulta su estado general.'
+                ).classes('text-body2 text-grey-6 q-mb-sm')
 
-                    estado_label = ui.label('Estado: apagado').classes('text-body1 q-mb-xs')
-                    receta_label = ui.label('Receta actual: (ninguna)').classes('text-body2 text-grey-7 q-mb-sm')
+                estado_label = ui.label('Estado: apagado').classes('text-body1 q-mb-xs')
+                receta_label = ui.label('Receta actual: (ninguna)').classes('text-body2 text-grey-7 q-mb-sm')
 
-                    def cambiar_encendido(e):
-                        if e.value:
-                            robot.encender()
-                            ESTADO_BARRA['completada'] = False
-                            ui.notify('Robot encendido', color='positive')
-                        else:
-                            robot.apagar()
-                            ESTADO_BARRA['completada'] = False
-                            ui.notify('Robot apagado', color='warning')
+                def cambiar_encendido(e):
+                    if e.value:
+                        robot.encender()
+                        ESTADO_BARRA['completada'] = False
+                        ui.notify('Robot encendido', color='positive')
+                    else:
+                        robot.apagar()
+                        ESTADO_BARRA['completada'] = False
+                        ui.notify('Robot apagado', color='warning')
 
-                        refrescar_ui_desde_robot()
+                    refrescar_ui_desde_robot()
 
-                    switch_encendido = ui.switch(
-                        'Robot encendido',
-                        value=(robot.estado != EstadoRobot.APAGADO),  # valor inicial según estado real
-                        on_change=cambiar_encendido,
-                    )
-                    switch_encendido.classes('q-mt-sm')
+                switch_encendido = ui.switch(
+                    'Encendido / Apagado',
+                    value=(robot.estado != EstadoRobot.APAGADO),  # valor inicial según estado real
+                    on_change=cambiar_encendido,
+                )
+                switch_encendido.classes('q-mt-sm')
 
-                # --- Selección de receta ---
-                with ui.card().classes('q-pa-md col-12 col-md-7'):
-                    ui.label('Selección de receta').classes('text-h6 q-mb-xs')
-                    ui.label(
-                        'Elige una receta preprogramada o una receta creada por el usuario.'
-                    ).classes('text-body2 text-grey-6 q-mb-sm')
+            # --- Selección de receta ---
+            with ui.card().classes('q-pa-md col-12 col-md-7'):
+                ui.label('Selección de receta').classes('text-h6 q-mb-xs')
+                ui.label(
+                    'Elige una receta preprogramada o una receta creada por el usuario.'
+                ).classes('text-body2 text-grey-6 q-mb-sm')
 
-                    seleccion = {'label_receta': None}
+                seleccion = {'label_receta': None}
 
-                    select_receta = ui.select(
-                        options=[],
-                        label='Receta',
-                        with_input=True,
-                        clearable=True,
-                    ).classes('w-full')
+                select_receta = ui.select(
+                    options=[],
+                    label='Receta',
+                    with_input=True,
+                    clearable=True,
+                ).classes('w-full')
 
-                    def refrescar_recetas():
-                        """Rellena el select y restaura la selección si existe."""
-                        etiquetas = construir_etiquetas_recetas()
-                        select_receta.options = etiquetas
-                        select_receta.disabled = not bool(etiquetas)
+                def refrescar_recetas():
+                    """Rellena el select y restaura la selección si existe."""
+                    etiquetas = construir_etiquetas_recetas()
+                    select_receta.options = etiquetas
+                    select_receta.disabled = not bool(etiquetas)
 
-                        # 1) Intentar restaurar la última selección guardada
-                        label_guardado = ULTIMA_RECETA_SELECCIONADA['label']
-                        receta_mostrada = None
+                    # 1) Intentar restaurar la última selección guardada
+                    label_guardado = ULTIMA_RECETA_SELECCIONADA['label']
+                    receta_mostrada = None
 
-                        if label_guardado and label_guardado in etiquetas:
-                            select_receta.value = label_guardado
-                            seleccion['label_receta'] = label_guardado
-                            receta_mostrada = RECETAS_DISPONIBLES.get(label_guardado)
+                    if label_guardado and label_guardado in etiquetas:
+                        select_receta.value = label_guardado
+                        seleccion['label_receta'] = label_guardado
+                        receta_mostrada = RECETAS_DISPONIBLES.get(label_guardado)
 
-                        # 2) Si no hay selección guardada pero el robot tiene receta actual,
-                        #    intentar localizarla y marcarla en el select.
-                        elif robot.receta_actual is not None:
-                            for label, receta in RECETAS_DISPONIBLES.items():
-                                if getattr(receta, 'id', None) == getattr(robot.receta_actual, 'id', object()):
-                                    select_receta.value = label
-                                    seleccion['label_receta'] = label
-                                    receta_mostrada = receta
-                                    break
+                    # 2) Si no hay selección guardada pero el robot tiene receta actual,
+                    #    intentar localizarla y marcarla en el select.
+                    elif robot.receta_actual is not None:
+                        for label, receta in RECETAS_DISPONIBLES.items():
+                            if getattr(receta, 'id', None) == getattr(robot.receta_actual, 'id', object()):
+                                select_receta.value = label
+                                seleccion['label_receta'] = label
+                                receta_mostrada = receta
+                                break
 
-                        # 3) Si no se ha podido restaurar nada, dejar el select vacío
-                        if receta_mostrada:
-                            receta_label.text = f"Receta actual: {receta_mostrada.nombre}"
-                        else:
-                            if not etiquetas:
-                                seleccion['label_receta'] = None
-                            select_receta.value = seleccion['label_receta']
-                            if seleccion['label_receta']:
-                                rec = RECETAS_DISPONIBLES.get(seleccion['label_receta'])
-                                receta_label.text = f"Receta actual: {rec.nombre}" if rec else "Receta actual: (ninguna)"
-                            else:
-                                receta_label.text = "Receta actual: (ninguna)"
-
-                        select_receta.update()
-                        ui.notify('Recetas actualizadas', color='primary')
-
-                    def on_cambio_receta(e):
-                        label = e.value
-                        seleccion['label_receta'] = label
-                        ULTIMA_RECETA_SELECCIONADA['label'] = label  # guardar selección globalmente
-
-                        receta = RECETAS_DISPONIBLES.get(label)
-                        if receta:
-                            receta_label.text = f"Receta actual: {receta.nombre}"
+                    # 3) Si no se ha podido restaurar nada, dejar el select vacío
+                    if receta_mostrada:
+                        receta_label.text = f"Receta actual: {receta_mostrada.nombre}"
+                    else:
+                        if not etiquetas:
+                            seleccion['label_receta'] = None
+                        select_receta.value = seleccion['label_receta']
+                        if seleccion['label_receta']:
+                            rec = RECETAS_DISPONIBLES.get(seleccion['label_receta'])
+                            receta_label.text = f"Receta actual: {rec.nombre}" if rec else "Receta actual: (ninguna)"
                         else:
                             receta_label.text = "Receta actual: (ninguna)"
 
-                    select_receta.on_value_change(on_cambio_receta)
+                    select_receta.update()
+                    ui.notify('Recetas actualizadas', color='primary')
 
-                    with ui.row().classes('q-mt-sm items-center justify-between'):
-                        ui.button(
-                            'Refrescar recetas',
-                            on_click=refrescar_recetas,
-                            color='primary',
-                        ).props('unelevated')
-                        ui.label(
-                            'Consejo: crea tus propias recetas desde la pestaña "Recetas".'
-                        ).classes('text-caption text-grey-6')
+                def on_cambio_receta(e):
+                    label = e.value
+                    seleccion['label_receta'] = label
+                    ULTIMA_RECETA_SELECCIONADA['label'] = label  # guardar selección globalmente
+
+                    receta = RECETAS_DISPONIBLES.get(label)
+                    if receta:
+                        receta_label.text = f"Receta actual: {receta.nombre}"
+                    else:
+                        receta_label.text = "Receta actual: (ninguna)"
+
+                select_receta.on_value_change(on_cambio_receta)
+
+                with ui.row().classes('q-mt-sm items-center justify-between'):
+                    ui.button(
+                        'Refrescar recetas',
+                        on_click=refrescar_recetas,
+                        color='primary',
+                    ).props('unelevated')
+                    ui.label(
+                        'Consejo: crea tus propias recetas desde la pestaña "Recetas".'
+                    ).classes('text-caption text-grey-6')
 
             # --- Control de cocción y progreso ---
             with ui.card().classes('q-pa-md'):
