@@ -406,14 +406,6 @@ class RobotCocina:
                     self._indice_paso_actual = i
                     self._segundo_en_paso = 0
 
-                    # Pausa automática entre pasos (excepto cuando ya no quedan más pasos)
-                    if i < total_pasos:
-                        # Marcar el robot como pausado y salir del hilo
-                        self._pausado = True
-                        self._estado = EstadoRobot.PAUSADO
-                        self._notificar_cambio()
-                        return
-
             # Receta completada
             with self._lock:
                 self._progreso = 100.0
