@@ -22,25 +22,25 @@ def _cabecera(pagina: str) -> None:
     dark.value = bool(THEME_STATE['dark'])
     current_dark = dark.value
 
-    base_header = 'q-px-md'
+    base_header = 'q-px-xl q-py-sm items-center'
     light_header = 'bg-primary text-white'
-    dark_header = 'bg-grey-9 text-grey-1'
-    CLASES_HEADER_COLOR = 'bg-primary bg-grey-9 text-white text-grey-1'
+    dark_header = 'bg-grey-10 text-grey-1'
+    CLASES_HEADER_COLOR = 'bg-primary bg-grey-10 text-white text-grey-1'
 
     # Creamos el header y aplicamos clases según el modo actual
-    header = ui.header()
-    header.classes(base_header)
+    header = ui.header().classes(f'{base_header} shadow-2')
     header.classes(dark_header if current_dark else light_header)
 
     with header:
-        with ui.row().classes('items-center justify-between w-full'):
+        with ui.row().classes('items-center justify-between w-full no-wrap'):
+
             # ---- Lado izquierdo: icono + título ----
-            with ui.row().classes('items-center gap-2'):
+            with ui.row().classes('items-center gap-2 no-wrap'):
                 ui.icon('soup_kitchen').classes('text-h5')
-                ui.label('Robot de cocina').classes('text-h5')
+                ui.label('Robot de cocina').classes('text-h5 text-weight-medium')
 
             # ---- Lado derecho: navegación + toggle modo oscuro ----
-            with ui.row().classes('items-center gap-2'):
+            with ui.row().classes('items-center gap-2 no-wrap'):
 
                 def boton_nav(texto: str, ruta: str, actual: bool) -> None:
                     color = 'white'
@@ -55,7 +55,7 @@ def _cabecera(pagina: str) -> None:
                 boton_nav('Recetas', '/recetas', pagina == 'recetas')
 
                 # ---- Toggle modo claro / oscuro ----
-                with ui.row().classes('items-center gap-1 q-ml-md'):
+                with ui.row().classes('items-center gap-1 q-ml-md no-wrap'):
                     icon_tema = ui.icon(
                         'dark_mode' if current_dark else 'light_mode'
                     ).classes('text-subtitle2')
@@ -80,7 +80,7 @@ def _cabecera(pagina: str) -> None:
                         value=current_dark,
                         on_change=cambiar_tema,
                     ).props('dense')
-                    ui.tooltip('Modo oscuro / claro')
+                    ui.tooltip('Modo claro / oscuro')
 
 
 def registrar_vistas(robot: RobotCocina) -> None:
