@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Optional
 
 from nicegui import ui
 
@@ -10,88 +10,85 @@ from robot.modelos import (
 )
 from robot import servicios
 
-DEFAULT_THEME_SET = False
 THEME_STATE = {'dark': False}
 
-def _cabecera(pagina: str) -> None:
-    """Barra superior común a todas las vistas."""
+# Paleta de colores profesional
+COLORS = {
+    'primary': '#4F46E5',      # Indigo moderno
+    'secondary': '#7C3AED',    # Purple
+    'success': '#10B981',      # Green
+    'warning': '#F59E0B',      # Amber
+    'danger': '#EF4444',       # Red
+    'info': '#3B82F6',         # Blue
+    'dark': '#1F2937',         # Gray-800
+    'light': '#F9FAFB',        # Gray-50
+}
 
-    # Controlador de modo oscuro para este cliente.
-    # Forzamos su valor al que tengamos guardado en THEME_STATE.
-    dark = ui.dark_mode()
-    dark.value = bool(THEME_STATE['dark'])
-    current_dark = dark.value
+# Estilos reutilizables (consistencia de tamaños/espaciados)
+CARD_BASE = 'bg-white dark:bg-gray-800 shadow-lg rounded-xl'
+CARD_MIN_H = 'min-h-[170px]'
 
-    base_header = 'q-px-xl q-py-sm items-center'
-    light_header = 'bg-primary text-white'
-    dark_header = 'bg-grey-10 text-grey-1'
-    CLASES_HEADER_COLOR = 'bg-primary bg-grey-10 text-white text-grey-1'
+def _card_classes(extra: str = '') -> str: 
+    return f'{CARD_BASE} {CARD_MIN_H} {extra}'.strip()
 
-    # Creamos el header y aplicamos clases según el modo actual
-    header = ui.header().classes(f'{base_header} shadow-2')
-    header.classes(dark_header if current_dark else light_header)
 
-    with header:
-        with ui.row().classes('items-center justify-between w-full no-wrap'):
+def _crear_navegacion():
+    """Drawer lateral de navegación moderna."""
+    with ui.left_drawer(fixed=True, bordered=True).classes(
+        'bg-gradient-to-b from-indigo-50 to-white dark:from-gray-900 dark:to-gray-800 overflow-y-auto'
+    ) as drawer:
+        drawer.classes('shadow-lg')
 
-            # ---- Lado izquierdo: icono + título ----
-            with ui.row().classes('items-center gap-2 no-wrap'):
-                ui.icon('soup_kitchen').classes('text-h5')
-                ui.label('Robot de cocina').classes('text-h5 text-weight-medium')
+        with ui.column().classes('w-full p-4 gap-2'):
+            # Logo/Header
+            with ui.row().classes('items-center gap-3 mb-6 pb-4 border-b border-indigo-200 dark:border-gray-700'):
+                ui.icon('soup_kitchen', size='xl').classes('text-indigo-600 dark:text-indigo-400')
+                with ui.column().classes('gap-0'):
+                    ui.label('Robot Cocina').classes('text-xl font-bold text-gray-800 dark:text-white')
+                    ui.label('Sistema de Control').classes('text-xs text-gray-500 dark:text-gray-400')
 
-            # ---- Lado derecho: navegación + toggle modo oscuro ----
-            with ui.row().classes('items-center gap-2 no-wrap'):
+            # Items de navegación
+            def nav_item(icono: str, texto: str, ruta: str, badge: str = None):
+                with ui.button(on_click=lambda r=ruta: ui.navigate.to(r)).props(
+                    'flat align=left no-caps'
+                ).classes('w-full justify-start'):
+                    with ui.row().classes('items-center gap-3 w-full'):
+                        ui.icon(icono, size='sm').classes('text-indigo-600 dark:text-indigo-400')
+                        ui.label(texto).classes('text-gray-700 dark:text-gray-200 font-medium')
+                        if badge:
+                            ui.badge(badge, color='red').props('floating')
 
-                def boton_nav(texto: str, ruta: str, actual: bool) -> None:
-                    color = 'white'
-                    estilos = 'text-weight-bold' if actual else 'text-weight-regular'
-                    ui.button(
-                        texto,
-                        on_click=lambda r=ruta: ui.navigate.to(r),
-                    ).props(f'flat color={color}').classes(estilos)
+            nav_item('dashboard', 'Panel de Control', '/')
+            nav_item('precision_manufacturing', 'Procesos', '/procesos')
+            nav_item('menu_book', 'Recetas', '/recetas')
 
-                boton_nav('Panel', '/', pagina == 'panel')
-                boton_nav('Procesos', '/procesos', pagina == 'procesos')
-                boton_nav('Recetas', '/recetas', pagina == 'recetas')
+            ui.separator().classes('my-4')
 
-                # ---- Toggle modo claro / oscuro ----
-                with ui.row().classes('items-center gap-1 q-ml-md no-wrap'):
-                    icon_tema = ui.icon(
-                        'dark_mode' if current_dark else 'light_mode'
-                    ).classes('text-subtitle2')
+            # Toggle tema
+            with ui.row().classes('items-center gap-2 p-2 rounded bg-white dark:bg-gray-800 shadow-sm'):
+                ui.icon('light_mode').classes('text-amber-500')
 
-                    def cambiar_tema(e):
-                        # 1) Actualizar estado global
-                        THEME_STATE['dark'] = bool(e.value)
+                def cambiar_tema(e):
+                    THEME_STATE['dark'] = e.value
+                    ui.dark_mode().value = e.value
 
-                        # 2) Actualizar controlador de NiceGUI
-                        dark.value = bool(e.value)
+                ui.switch(value=THEME_STATE['dark'], on_change=cambiar_tema).props('dense color=indigo')
+                ui.icon('dark_mode').classes('text-indigo-600')
 
-                        # 3) Cambiar icono
-                        nuevo_nombre = 'dark_mode' if e.value else 'light_mode'
-                        icon_tema.props(f'name={nuevo_nombre}')
+            ui.separator().classes('my-4')
 
-                        # 4) Actualizar clases del header: primero quitamos todas las de color, luego añadimos
-                        header.classes(remove=CLASES_HEADER_COLOR)
-                        header.classes(dark_header if e.value else light_header)
+            # Zona de Peligro en el drawer
+            peligro_expansion = ui.expansion('Ajustes', icon='settings').classes(
+                'w-full rounded-xl bg-white dark:bg-gray-800 shadow-sm'
+            )
 
-                    ui.switch(
-                        '',
-                        value=current_dark,
-                        on_change=cambiar_tema,
-                    ).props('dense')
-                    ui.tooltip('Modo claro / oscuro')
+            peligro_expansion.set_value(False)
+
+    return drawer, peligro_expansion
 
 
 def registrar_vistas(robot: RobotCocina) -> None:
-    """
-    Registra las páginas de la aplicación NiceGUI.
-    Debe llamarse una vez, pasando la instancia de RobotCocina que se va a controlar.
-    """
-
-    # ------------------------------------------------------------------
-    # Utilidades compartidas: recetas disponibles (para el panel principal)
-    # ------------------------------------------------------------------
+    """Registra las vistas con diseño renovado y layout consistente."""
 
     RECETAS_DISPONIBLES: Dict[str, object] = {}
     ULTIMA_RECETA_SELECCIONADA: dict[str, Optional[str]] = {'label': None}
@@ -102,12 +99,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
     }
 
     def construir_etiquetas_recetas() -> List[str]:
-        """
-        Carga recetas de base y de usuario y devuelve una lista de labels:
-        "[Base] Nombre", "[Usuario] Nombre".
-
-        Además rellena RECETAS_DISPONIBLES[label] = Receta
-        """
         RECETAS_DISPONIBLES.clear()
         etiquetas: List[str] = []
 
@@ -125,1009 +116,833 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
         return etiquetas
 
-    # ------------------------------------------------------------------
-    # PÁGINA PRINCIPAL
-    # ------------------------------------------------------------------
+    # ==================================================================================
+    # PANEL PRINCIPAL - DASHBOARD
+    # ==================================================================================
 
     @ui.page('/')
-    def pagina_principal() -> None:
-        _cabecera('panel')
-        ui.page_title('Robot de cocina - Panel principal')
+    def pagina_dashboard() -> None:
+        ui.page_title('Dashboard - Robot de Cocina')
+        drawer, peligro_expansion = _crear_navegacion()
 
-        with ui.column().classes('q-pa-md q-gutter-md items-stretch max-w-4xl mx-auto'):
-            with ui.row().classes('items-center justify-between w-full'):
-                with ui.column().classes('q-gutter-none'):
-                    ui.label('Panel de control').classes('text-h4')
-                    ui.label(
-                        'Enciende el robot, selecciona una receta y controla la cocción guiada.'
-                    ).classes('text-body2 text-grey-7')
-                ui.icon('kitchen').classes('text-h3 text-primary')
+        # Header
+        with ui.header().classes('bg-white dark:bg-gray-900 shadow-sm'):
+            with ui.row().classes('w-full items-center justify-between px-6 py-3'):
+                with ui.row().classes('items-center gap-3'):
+                    ui.button(icon='menu', on_click=lambda: drawer.toggle()).props('flat dense round')
+                    ui.label('Panel de Control').classes('text-2xl font-bold text-gray-800 dark:text-white')
 
-            # --- Encendido / apagado + resumen ---
-            with ui.card().classes('q-pa-md col-12 col-md-7'):
-                ui.label('Energía y estado').classes('text-h6 q-mb-xs')
-                ui.label(
-                    'Controla si el robot está encendido y consulta su estado general.'
-                ).classes('text-body2 text-grey-6 q-mb-sm')
+                with ui.row().classes('items-center gap-2'):
+                    ui.icon('circle', size='xs').classes('text-green-500 animate-pulse')
+                    ui.label('Sistema activo').classes('text-sm text-gray-600 dark:text-gray-400')
 
-                estado_label = ui.label('Estado: apagado').classes('text-body1 q-mb-xs')
-                receta_label = ui.label('Receta actual: (ninguna)').classes('text-body2 text-grey-7 q-mb-sm')
+        # Contenedor principal
+        with ui.column().classes('p-6 max-w-7xl mx-auto gap-6 w-full min-h-screen bg-gray-50 dark:bg-gray-900'):
 
-                def cambiar_encendido(e):
-                    if e.value:
-                        robot.encender()
-                        ESTADO_BARRA['completada'] = False
-                        ui.notify('Robot encendido', color='positive')
-                    else:
-                        robot.apagar()
-                        ESTADO_BARRA['completada'] = False
-                        ui.notify('Robot apagado', color='warning')
+            # ================== MODO DE OPERACIÓN (solo UI por ahora) ==================
+            modo = {'valor': 'Guiado'}
 
-                    refrescar_ui_desde_robot()
+            def on_cambio_modo(e):
+                modo['valor'] = e.value
+                ui.notify(f'Modo seleccionado: {modo['valor']}', type='info')
 
-                switch_encendido = ui.switch(
-                    'Encendido / Apagado',
-                    value=(robot.estado != EstadoRobot.APAGADO),  # valor inicial según estado real
-                    on_change=cambiar_encendido,
-                )
-                switch_encendido.classes('q-mt-sm')
+            # ============ FILA 1: MÉTRICAS PRINCIPALES ============
+            with ui.element('div').classes('grid grid-cols-1 md:grid-cols-3 gap-4 w-full'):
 
-            # --- Selección de receta ---
-            with ui.card().classes('q-pa-md col-12 col-md-7'):
-                ui.label('Selección de receta').classes('text-h6 q-mb-xs')
-                ui.label(
-                    'Elige una receta preprogramada o una receta creada por el usuario.'
-                ).classes('text-body2 text-grey-6 q-mb-sm')
+                # Card Estado del Robot (gradiente)
+                with ui.card().classes(_card_classes('shadow-xl')):
+                    with ui.column().classes('p-6 gap-3 h-full flex flex-col justify-between'):
+                        with ui.row().classes('items-center justify-between'):
+                            icon_power = ui.icon('power_settings_new', size='md').classes('text-red-600')
+                            ui.label('Estado del Robot').classes('text-lg font-bold opacity-90')
 
-                seleccion = {'label_receta': None}
+                        estado_label = ui.label('APAGADO').classes('text-3xl font-bold')
 
-                select_receta = ui.select(
-                    options=[],
-                    label='Receta',
-                    with_input=True,
-                    clearable=True,
-                ).classes('w-full')
+                        def cambiar_encendido(e):
+                            if e.value:
+                                robot.encender()
+                                icon_power.classes(remove='text-red-600')
+                                icon_power.classes(add='text-green-600')
+                                ESTADO_BARRA['completada'] = False
+                                ui.notify('Robot encendido', type='positive', position='top')
+                            else:
+                                robot.apagar()
+                                icon_power.classes(remove='text-green-600')
+                                icon_power.classes(add='text-red-600')
+                                ESTADO_BARRA['completada'] = False
+                                ui.notify('Robot apagado', type='warning', position='top')
+                            refrescar_ui()
 
-                def refrescar_recetas():
-                    """Rellena el select y restaura la selección si existe."""
-                    etiquetas = construir_etiquetas_recetas()
-                    select_receta.options = etiquetas
-                    select_receta.disabled = not bool(etiquetas)
+                        with ui.row().classes('items-center gap-3'):
+                            ui.label('O').classes('text-xs text-gray-600 select-none')
+                            switch_encendido = ui.switch(
+                                value=(robot.estado != EstadoRobot.APAGADO),
+                                on_change=cambiar_encendido
+                            ).props('color=green').tooltip('O = Apagado · I = Encendido')
+                            ui.label('I').classes('text-xs text-gray-600 select-none')
 
-                    # 1) Intentar restaurar la última selección guardada
-                    label_guardado = ULTIMA_RECETA_SELECCIONADA['label']
-                    receta_mostrada = None
+                # Card Progreso
+                with ui.card().classes(_card_classes('shadow-xl')):
+                    with ui.column().classes('p-6 gap-3 h-full flex flex-col justify-between'):
+                        with ui.row().classes('items-center justify-between'):
+                            ui.icon('schedule', size='md').classes('text-indigo-600')
+                            ui.label('Progreso de Cocción').classes('text-xl font-bold text-gray-800 dark:text-white')
 
-                    if label_guardado and label_guardado in etiquetas:
-                        select_receta.value = label_guardado
-                        seleccion['label_receta'] = label_guardado
-                        receta_mostrada = RECETAS_DISPONIBLES.get(label_guardado)
+                        progreso_label = ui.label('0%').classes('text-3xl font-bold text-blue-500 dark:text-blue-400')
+                        barra_progreso = ui.linear_progress(value=0.0, show_value=False, size='md').props(
+                            'rounded color=indigo stripe animated'
+                        ).classes('w-full')
 
-                    # 2) Si no hay selección guardada pero el robot tiene receta actual,
-                    #    intentar localizarla y marcarla en el select.
-                    elif robot.receta_actual is not None:
-                        for label, receta in RECETAS_DISPONIBLES.items():
-                            if getattr(receta, 'id', None) == getattr(robot.receta_actual, 'id', object()):
-                                select_receta.value = label
-                                seleccion['label_receta'] = label
-                                receta_mostrada = receta
-                                break
+                # Card Receta Actual
+                with ui.card().classes(_card_classes('shadow-xl')):
+                    with ui.column().classes('p-6 gap-3 h-full flex flex-col justify-between'):
+                        with ui.row().classes('items-center justify-between'):
+                            ui.icon('restaurant', size='md').classes('text-indigo-600')
+                            ui.label('Receta Actual').classes('text-lg font-semibold text-gray-700 dark:text-gray-200')
+                        receta_label = ui.label('(ninguna)').classes('text-xl font-medium text-gray-600 dark:text-gray-400')
 
-                    # 3) Si no se ha podido restaurar nada, dejar el select vacío
-                    if receta_mostrada:
-                        receta_label.text = f"Receta actual: {receta_mostrada.nombre}"
-                    else:
-                        if not etiquetas:
-                            seleccion['label_receta'] = None
-                        select_receta.value = seleccion['label_receta']
-                        if seleccion['label_receta']:
-                            rec = RECETAS_DISPONIBLES.get(seleccion['label_receta'])
-                            receta_label.text = f"Receta actual: {rec.nombre}" if rec else "Receta actual: (ninguna)"
-                        else:
-                            receta_label.text = "Receta actual: (ninguna)"
+            # ============ FILA 2: SELECCIÓN, MODO Y CONTROL ============
+            with ui.element('div').classes('grid grid-cols-1 md:grid-cols-3 gap-4 w-full'):
 
-                    select_receta.update()
-                    ui.notify('Recetas actualizadas', color='primary')
+                # Selector de receta
+                with ui.card().classes(_card_classes()):
+                    with ui.column().classes('p-6 gap-4 h-full flex flex-col justify-between'):
+                        with ui.row().classes('items-center justify-between'):
+                            ui.icon('menu_book', size='md').classes('text-indigo-600')
+                            ui.label('Seleccionar Receta').classes('text-xl font-bold text-gray-800 dark:text-white')
 
-                def on_cambio_receta(e):
-                    label = e.value
-                    seleccion['label_receta'] = label
-                    ULTIMA_RECETA_SELECCIONADA['label'] = label  # guardar selección globalmente
+                        seleccion = {'label_receta': None}
 
-                    receta = RECETAS_DISPONIBLES.get(label)
-                    if receta:
-                        receta_label.text = f"Receta actual: {receta.nombre}"
-                    else:
-                        receta_label.text = "Receta actual: (ninguna)"
+                        select_receta = ui.select(
+                            options=[],
+                            label='Buscar y seleccionar receta',
+                            with_input=True,
+                            clearable=True,
+                        ).props('outlined').classes('w-full min-h-[56px]')
 
-                select_receta.on_value_change(on_cambio_receta)
+                        with ui.row().classes('gap-2'):
+                            ui.button('Actualizar Lista', on_click=lambda: refrescar_recetas(), color='indigo').props('outline icon=refresh')
+                            ui.button('Nueva Receta', on_click=lambda: ui.navigate.to('/recetas'), color='green').props('outline icon=add_circle')
 
-                with ui.row().classes('q-mt-sm items-center justify-between'):
-                    ui.button(
-                        'Refrescar recetas',
-                        on_click=refrescar_recetas,
-                        color='primary',
-                    ).props('unelevated')
-                    ui.label(
-                        'Consejo: crea tus propias recetas desde la pestaña "Recetas".'
-                    ).classes('text-caption text-grey-6')
+                # Card Modo
+                with ui.card().classes(_card_classes()):
+                    with ui.column().classes('p-6 gap-4 h-full flex flex-col justify-between'):
+                        with ui.row().classes('items-center justify-between'):
+                            ui.icon('tune', size='md').classes('text-indigo-600')
+                            ui.label('Modo de Operación').classes('text-xl font-bold text-gray-800 dark:text-white')
 
-            # --- Control de cocción y progreso ---
-            with ui.card().classes('q-pa-md'):
-                ui.label('Cocción y progreso').classes('text-h6 q-mb-xs')
-                ui.label(
-                    'Inicia, pausa o cancela la cocción. Observa el progreso y el paso actual.'
-                ).classes('text-body2 text-grey-6 q-mb-sm')
+                        with ui.column().classes('gap-2 text-sm text-gray-600 dark:text-gray-400'):
+                            ui.label('Selecciona cómo quieres cocinar.')
 
-                barra_progreso = ui.linear_progress(
-                    value=0.0,
-                    show_value=False,
-                    size='10px',
-                ).props('striped').classes('w-full q-mt-xs')
+                            ui.label('• Modo guiado: Selecciona una receta y el robot te guiará paso a paso.')
+                            ui.label('• Modo manual: Controla todo tú mismo.')
 
-                with ui.row().classes('items-center justify-between q-mt-sm'):
-                    progreso_label = ui.label('Progreso: 0.0 %').classes('text-body1')
-                    texto_paso_label = ui.label('Paso actual: (ninguno)').classes('text-body2 text-grey-7')
+                        # Toggle Guiado / Manual (solo UI por ahora)
+                        ui.toggle(
+                            ['Guiado', 'Manual'],
+                            value='Guiado',
+                            on_change=on_cambio_modo
+                        ).props('unelevated toggle-color=indigo color=grey-5').classes('w-full')
 
-                def iniciar_coccion():
-                    """
-                    - Si el robot está APAGADO: avisar.
-                    - Si está PAUSADO: reanudar sin reiniciar progreso.
-                    - Si está COCINANDO: no hacer nada, solo avisar.
-                    - Si está en ESPERA: iniciar desde 0 con la receta seleccionada.
-                    """
-                    # 1) Robot apagado
-                    if robot.estado == EstadoRobot.APAGADO:
-                        ui.notify('El robot está apagado. Enciéndelo primero.', color='negative')
-                        return
+                # Controles principales
+                with ui.card().classes(_card_classes()):
+                    with ui.column().classes('p-6 gap-4 h-full flex flex-col justify-between'):
+                        with ui.row().classes('items-center justify-between'):
+                            ui.icon('touch_app', size='md').classes('text-indigo-600')
+                            ui.label('Control de Cocción').classes('text-xl font-bold text-gray-800 dark:text-white')
 
-                    ESTADO_BARRA['completada'] = False
+                        def iniciar_coccion():
+                            if robot.estado == EstadoRobot.APAGADO:
+                                ui.notify('Enciende el robot primero', type='warning')
+                                return
 
-                    # 2) Reanudar desde pausa
-                    if robot.estado == EstadoRobot.PAUSADO:
-                        try:
-                            robot.iniciar_coccion()
-                            ui.notify('Reanudando cocción…', color='positive')
-                        except Exception as ex:
-                            ui.notify(f'Error al reanudar la cocción: {ex}', color='negative')
-                        return
+                            ESTADO_BARRA['completada'] = False
 
-                    # 3) Si ya está cocinando, no reiniciar
-                    if robot.estado == EstadoRobot.COCINANDO:
-                        ui.notify('El robot ya está cocinando.', color='info')
-                        return
+                            if robot.estado in (EstadoRobot.PAUSADO, EstadoRobot.ESPERANDO_CONFIRMACION):
+                                try:
+                                    robot.iniciar_coccion()
+                                    ui.notify('Reanudando...', type='positive')
+                                except Exception as ex:
+                                    ui.notify(f'Error: {ex}', type='negative')
+                                return
 
-                    # 4) Estado de espera: iniciar desde cero
-                    label = seleccion['label_receta'] or ULTIMA_RECETA_SELECCIONADA['label']
-                    if not label:
-                        ui.notify('Selecciona una receta primero.', color='negative')
-                        return
+                            if robot.estado == EstadoRobot.COCINANDO:
+                                ui.notify('El robot ya está cocinando', type='info')
+                                return
 
-                    receta = RECETAS_DISPONIBLES.get(label)
-                    if not receta:
-                        ui.notify('La receta seleccionada no existe.', color='negative')
-                        return
+                            label = seleccion['label_receta'] or ULTIMA_RECETA_SELECCIONADA['label']
+                            if not label:
+                                ui.notify('Selecciona una receta', type='warning')
+                                return
 
-                    try:
-                        # Desde ESPERA siempre seleccionamos receta e iniciamos desde 0
-                        robot.seleccionar_receta(receta)
-                        robot.iniciar_coccion()
-                        ui.notify(f'Iniciando cocción: {receta.nombre}', color='positive')
-                    except RobotApagadoError as ex:
-                        ui.notify(str(ex), color='negative')
-                    except RecetaNoSeleccionadaError as ex:
-                        ui.notify(str(ex), color='negative')
-                    except Exception as ex:
-                        ui.notify(f'Error al iniciar la cocción: {ex}', color='negative')
+                            receta = RECETAS_DISPONIBLES.get(label)
+                            if not receta:
+                                ui.notify('Receta no encontrada', type='negative')
+                                return
 
-                def pausar_coccion():
-                    if robot.estado != EstadoRobot.COCINANDO:
-                        ui.notify('El robot no está cocinando ahora mismo.', color='warning')
-                        return
-                    robot.pausar()
-                    ui.notify('Pausa solicitada. Se detendrá en breve.', color='warning')
+                            try:
+                                robot.seleccionar_receta(receta)
+                                robot.iniciar_coccion()
+                                ui.notify(f'Iniciando: {receta.nombre}', type='positive')
+                            except Exception as ex:
+                                ui.notify(f'{ex}', type='negative')
 
-                def cancelar_coccion():
-                    if robot.estado not in (EstadoRobot.COCINANDO, EstadoRobot.PAUSADO, EstadoRobot.ESPERA):
-                        ui.notify('No hay cocción en curso que cancelar.', color='warning')
-                        return
-                    robot.detener_coccion()
-                    ESTADO_BARRA['completada'] = False
-                    ESTADO_BARRA['ultimo_progreso'] = 0.0
-                    ESTADO_BARRA['ultimo_estado'] = EstadoRobot.ESPERA
+                        def pausar_coccion():
+                            if robot.estado != EstadoRobot.COCINANDO:
+                                ui.notify('No está cocinando', type='warning')
+                                return
+                            robot.pausar()
+                            ui.notify('Pausando...', type='info')
 
-                    barra_progreso.value = 0.0
-                    progreso_label.text = "Progreso: 0.0 %"
-                    texto_paso_label.text = "Paso actual: (ninguno)"
+                        def cancelar_coccion():
+                            robot.detener_coccion()
+                            ESTADO_BARRA['completada'] = False
+                            ESTADO_BARRA['ultimo_progreso'] = 0.0
+                            ESTADO_BARRA['ultimo_estado'] = EstadoRobot.ESPERA
+                            barra_progreso.value = 0.0
+                            progreso_label.text = "0%"
+                            paso_card.set_visibility(False)
+                            boton_confirmar.set_visibility(False)
+                            ui.notify('Cocción cancelada', type='warning')
 
-                    ui.notify('Cocción cancelada y progreso reiniciado.', color='warning')
+                        with ui.column().classes('gap-2 w-full'):
+                            ui.button('INICIAR / REANUDAR', on_click=iniciar_coccion).props(
+                                'unelevated color=green icon=play_arrow size=lg'
+                            ).classes('w-full')
+                            ui.button('PAUSAR', on_click=pausar_coccion).props(
+                                'outline color=orange icon=pause'
+                            ).classes('w-full')
+                            ui.button('CANCELAR', on_click=cancelar_coccion).props(
+                                'outline color=red icon=stop'
+                            ).classes('w-full')
 
-                with ui.row().classes('q-mt-md q-gutter-sm'):
-                    ui.button('Iniciar / Reanudar', on_click=iniciar_coccion, color='green').props('unelevated')
-                    ui.button('Pausar', on_click=pausar_coccion, color='orange').props('outline')
-                    ui.button('Cancelar', on_click=cancelar_coccion, color='red').props('outline')
+            # ============ FILA 3: INGREDIENTES (expandible) ============
+            ingredientes_expansion = ui.expansion(
+                'Ingredientes Necesarios',
+                icon='shopping_cart'
+            ).classes('w-full rounded-xl bg-white dark:bg-gray-800 shadow-lg')
 
-            # --- Ajustes / reinicio de fábrica ---
-            with ui.card().classes('q-pa-md'):
-                ui.label('Ajustes del sistema').classes('text-h6 q-mb-xs')
-                ui.label(
-                    'Restablece las recetas y procesos de usuario. Los datos de fábrica se mantienen.'
-                ).classes('text-body2 text-grey-6 q-mb-sm')
+            with ingredientes_expansion:
+                with ui.column().classes('p-4 gap-2'):
+                    ingredientes_lista = ui.html('<div></div>', sanitize=False).classes('text-gray-700 dark:text-gray-300')
 
-                # === FUNCIÓN ORIGINAL ===
-                def hacer_reinicio_fabrica():
-                    servicios.reinicio_de_fabrica()
-                    refrescar_recetas()
-                    switch_encendido.value = False
-                    ESTADO_BARRA['completada'] = False
+            ingredientes_expansion.set_visibility(False)
 
-                    receta_label.text = "Receta actual: (ninguna)"
-                    barra_progreso.value = 0.0
-                    progreso_label.text = "Progreso: 0.0 %"
-                    texto_paso_label.text = "Paso actual: (ninguno)"
-                    ui.notify('Reinicio de fábrica completado.', color='primary')
-
-                # === DIÁLOGO DE CONFIRMACIÓN ===
-                with ui.dialog() as dialog_confirm_reset:
-                    with ui.card().classes('q-pa-md q-gutter-sm'):
-                        ui.label('⚠️ ¿Restablecer ajustes de fábrica?').classes('text-h6')
-                        ui.label('Esta acción no se puede deshacer.').classes('text-body2 text-red-7')
-
-                        with ui.row().classes('justify-end q-gutter-sm q-mt-md'):
-                            ui.button(
-                                'Cancelar',
-                                on_click=dialog_confirm_reset.close,
-                                color='grey'
-                            )
-
-                            def confirmar_reset():
-                                dialog_confirm_reset.close()
-                                hacer_reinicio_fabrica()
-
-                            ui.button(
-                                'Sí, resetear',
-                                on_click=confirmar_reset,
-                                color='red'
-                            ).props('unelevated')
-
-                # === BOTÓN QUE ABRE EL POPUP ===
-                ui.button(
-                    'Reinicio de fábrica',
-                    on_click=dialog_confirm_reset.open,
-                    color='orange',
-                ).props('outline icon=restart_alt')
-
-        # --- Timer para refrescar la UI según el estado del robot ---
-        def refrescar_ui_desde_robot():
-            # ==== ESTADO VISUAL DEL ROBOT ====
-            estado_actual = robot.estado
-
-            base = 'text-body1 q-mb-xs q-px-sm q-py-xs rounded-borders'
-
-            # todas las clases de color que vamos a usar en los estados
-            CLASES_COLOR = (
-                'text-grey-8 text-blue-grey-8 text-green-9 text-amber-9 text-red-9 '
-                'bg-grey-2 bg-blue-grey-2 bg-green-2 bg-amber-2 bg-red-2'
+            # ============ FILA 4: PASO ACTUAL ============
+            paso_card = ui.card().classes(
+                'w-full bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-800 dark:to-gray-900 '
+                'shadow-xl border-2 border-purple-300 dark:border-purple-700 rounded-xl'
             )
+            with paso_card:
+                with ui.column().classes('p-6 gap-4'):
+                    with ui.row().classes('items-center gap-3'):
+                        ui.icon('assignment', size='lg').classes('text-purple-600')
+                        paso_label = ui.label('Paso Actual').classes('text-2xl font-bold text-gray-800 dark:text-white')
 
-            estilos_estado = {
-                EstadoRobot.APAGADO: {
-                    'texto': 'Estado: APAGADO',
-                    'clases': 'text-grey-8 bg-grey-2',
-                },
-                EstadoRobot.ESPERA: {
-                    'texto': 'Estado: EN ESPERA',
-                    'clases': 'text-blue-grey-8 bg-blue-grey-2',
-                },
-                EstadoRobot.COCINANDO: {
-                    'texto': 'Estado: COCINANDO',
-                    'clases': 'text-green-9 bg-green-2',
-                },
-                EstadoRobot.PAUSADO: {
-                    'texto': 'Estado: PAUSADO',
-                    'clases': 'text-amber-9 bg-amber-2',
-                },
-                EstadoRobot.ERROR: {
-                    'texto': 'Estado: ERROR',
-                    'clases': 'text-red-9 bg-red-2',
-                },
-            }
+                    instrucciones_label = ui.label('').classes('text-lg text-gray-700 dark:text-gray-300')
 
-            estilo = estilos_estado.get(estado_actual, estilos_estado[EstadoRobot.ERROR])
+                    boton_confirmar = ui.button(
+                        'CONFIRMAR Y CONTINUAR',
+                        on_click=lambda: confirmar_paso()
+                    ).props('unelevated color=green size=xl icon=check_circle').classes('w-full')
+                    boton_confirmar.set_visibility(False)
 
-            # Texto correcto
-            estado_label.text = estilo['texto']
+            paso_card.set_visibility(False)
 
-            # 1) nos aseguramos de que las clases base estén (idempotente)
-            estado_label.classes(base)
+            def confirmar_paso():
+                robot.confirmar_paso_manual()
+                ui.notify('Paso confirmado', type='positive')
+                boton_confirmar.set_visibility(False)
+                paso_card.set_visibility(False)
 
-            # 2) quitamos todas las clases de color posibles
-            estado_label.classes(remove=CLASES_COLOR)
+            # ============ CONTENIDO DE ZONA DE AJUSTES EN EL DRAWER ============
+            with peligro_expansion:
+                with ui.column().classes('p-4 gap-3'):
+                    ui.label('Reinicia el robot a configuración de fábrica').classes(
+                        'text-sm text-gray-600 dark:text-gray-400 mb-3'
+                    )
 
-            # 3) añadimos solo las del estado actual
-            estado_label.classes(estilo['clases'])
+                    def hacer_reinicio():
+                        servicios.reinicio_de_fabrica()
+                        refrescar_recetas()
+                        switch_encendido.value = False
+                        ESTADO_BARRA['completada'] = False
+                        receta_label.text = "(ninguna)"
+                        ingredientes_expansion.set_visibility(False)
+                        barra_progreso.value = 0.0
+                        progreso_label.text = "0%"
+                        paso_card.set_visibility(False)
+                        boton_confirmar.set_visibility(False)
+                        ui.notify('Reinicio completado', type='positive')
 
-            # --- Lógica de barra latcheada ---
-            prog_actual = float(getattr(robot, 'progreso', 0.0) or 0.0)
-            prog_anterior = ESTADO_BARRA.get('ultimo_progreso', 0.0)
-            estado_anterior = ESTADO_BARRA.get('ultimo_estado', EstadoRobot.ESPERA)
+                    with ui.dialog() as dialog_reset:
+                        with ui.card().classes('p-6'):
+                            ui.label('¿Confirmar reinicio de fábrica?').classes('text-xl font-bold mb-4')
+                            ui.label('Esta acción eliminará todas las recetas y procesos de usuario.').classes(
+                                'text-red-600 mb-4'
+                            )
+                            with ui.row().classes('gap-2'):
+                                ui.button('Cancelar', on_click=dialog_reset.close).props('flat')
+                                ui.button(
+                                    'Sí, resetear',
+                                    on_click=lambda: [dialog_reset.close(), hacer_reinicio()]
+                                ).props('unelevated color=red')
 
-            # Solo intentamos marcarla como completada si aún no lo está
-            if not ESTADO_BARRA.get('completada', False):
-                # Caso 1: el modelo llega a 100%
-                if prog_actual >= 99.9:
-                    ESTADO_BARRA['completada'] = True
-                # Caso 2: el modelo resetea a 0 al terminar,
-                # pero veníamos de cocinando con progreso > 0
-                elif (
-                    estado_anterior == EstadoRobot.COCINANDO
-                    and estado_actual in (EstadoRobot.ESPERA, EstadoRobot.PAUSADO)
-                    and prog_anterior > 0.0
-                    and prog_actual == 0.0
-                ):
-                    ESTADO_BARRA['completada'] = True
+                    ui.button('Reinicio de Fábrica', on_click=dialog_reset.open).props(
+                        'outline color=orange icon=restart_alt'
+                    ).classes('w-full')
 
-            # Guardamos valores para la siguiente iteración del timer
-            ESTADO_BARRA['ultimo_progreso'] = prog_actual
-            ESTADO_BARRA['ultimo_estado'] = estado_actual
+            # ============ FUNCIONES DE ACTUALIZACIÓN ============
 
-            # Aplicar a la barra
-            if ESTADO_BARRA.get('completada', False):
-                barra_progreso.value = 1.0
-                progreso_label.text = 'Progreso: 100.0 %'
-                barra_progreso.props('color=green')
-            else:
-                barra_progreso.value = prog_actual / 100.0
-                progreso_label.text = f'Progreso: {prog_actual:.1f} %'
-                barra_progreso.props('color=primary')
+            def refrescar_recetas():
+                etiquetas = construir_etiquetas_recetas()
+                select_receta.options = etiquetas
+                select_receta.disabled = not bool(etiquetas)
 
-            # Receta actual y paso actual
-            receta = robot.receta_actual
-            if receta:
-                receta_label.text = f"Receta actual: {receta.nombre}"
-                pasos = receta.pasos
-                if pasos:
-                    idx = robot.indice_paso_actual
-                    if 0 <= idx < len(pasos):
-                        paso = pasos[idx]
+                label_guardado = ULTIMA_RECETA_SELECCIONADA['label']
+                receta_mostrada = None
+
+                if label_guardado and label_guardado in etiquetas:
+                    select_receta.value = label_guardado
+                    seleccion['label_receta'] = label_guardado
+                    receta_mostrada = RECETAS_DISPONIBLES.get(label_guardado)
+                elif robot.receta_actual is not None:
+                    for label, receta in RECETAS_DISPONIBLES.items():
+                        if getattr(receta, 'id', None) == getattr(robot.receta_actual, 'id', object()):
+                            select_receta.value = label
+                            seleccion['label_receta'] = label
+                            receta_mostrada = receta
+                            break
+
+                if receta_mostrada:
+                    receta_label.text = receta_mostrada.nombre
+                    if getattr(receta_mostrada, 'ingredientes', None):
+                        html_ings = '<div class="space-y-2">'
+                        for ing in receta_mostrada.ingredientes:
+                            nota = f' <span class="text-gray-500">({ing["nota"]})</span>' if ing.get('nota') else ''
+                            html_ings += (
+                                f'<div class="flex items-center gap-2">'
+                                f'<span class="text-indigo-600">•</span>'
+                                f'<b>{ing["nombre"]}</b>: {ing["cantidad"]} {ing["unidad"]}{nota}'
+                                f'</div>'
+                            )
+                        html_ings += '</div>'
+                        ingredientes_lista.set_content(html_ings)
+                        ingredientes_expansion.set_visibility(True)
                     else:
-                        paso = pasos[-1]
-                    texto_paso_label.text = f"Paso actual: {paso.proceso.nombre}"
+                        ingredientes_expansion.set_visibility(False)
                 else:
-                    texto_paso_label.text = "Paso actual: (ninguno)"
-            else:
-                receta_label.text = "Receta actual: (ninguna)"
-                texto_paso_label.text = "Paso actual: (ninguno)"
+                    receta_label.text = "(ninguna)"
+                    ingredientes_expansion.set_visibility(False)
 
-        ui.timer(interval=0.5, callback=refrescar_ui_desde_robot)
+                select_receta.update()
+                ui.notify('Recetas actualizadas', type='info')
 
-        # Al entrar en la página, cargamos las recetas
-        refrescar_recetas()
+            def on_cambio_receta(e):
+                label = e.value
+                seleccion['label_receta'] = label
+                ULTIMA_RECETA_SELECCIONADA['label'] = label
 
-    # ------------------------------------------------------------------
-    # PÁGINA DE PROCESOS
-    # ------------------------------------------------------------------
+                receta = RECETAS_DISPONIBLES.get(label)
+                if receta:
+                    receta_label.text = receta.nombre
+                    if getattr(receta, 'ingredientes', None):
+                        html_ings = '<div class="space-y-2">'
+                        for ing in receta.ingredientes:
+                            nota = f' <span class="text-gray-500">({ing["nota"]})</span>' if ing.get('nota') else ''
+                            html_ings += (
+                                f'<div class="flex items-center gap-2">'
+                                f'<span class="text-indigo-600">•</span>'
+                                f'<b>{ing["nombre"]}</b>: {ing["cantidad"]} {ing["unidad"]}{nota}'
+                                f'</div>'
+                            )
+                        html_ings += '</div>'
+                        ingredientes_lista.set_content(html_ings)
+                        ingredientes_expansion.set_visibility(True)
+                    else:
+                        ingredientes_expansion.set_visibility(False)
+                else:
+                    receta_label.text = "(ninguna)"
+                    ingredientes_expansion.set_visibility(False)
+
+            select_receta.on_value_change(on_cambio_receta)
+
+            def refrescar_ui():
+                estado_actual = robot.estado
+
+                estados_config = {
+                    EstadoRobot.APAGADO: ('APAGADO', 'text-gray-400'),
+                    EstadoRobot.ESPERA: ('EN ESPERA', 'text-blue-400'),
+                    EstadoRobot.COCINANDO: ('COCINANDO', 'text-green-400 animate-pulse'),
+                    EstadoRobot.PAUSADO: ('PAUSADO', 'text-yellow-400'),
+                    EstadoRobot.ESPERANDO_CONFIRMACION: ('ESPERANDO CONFIRMACIÓN', 'text-purple-400 animate-pulse'),
+                    EstadoRobot.ERROR: ('ERROR', 'text-red-400'),
+                }
+
+                texto, clases = estados_config.get(estado_actual, ('DESCONOCIDO', 'text-gray-400'))
+                estado_label.text = texto
+                estado_label.classes(
+                    clases,
+                    remove='text-gray-400 text-blue-400 text-green-400 text-yellow-400 text-purple-400 text-red-400 animate-pulse'
+                )
+
+                # Progreso
+                prog_actual = float(getattr(robot, 'progreso', 0.0) or 0.0)
+                prog_anterior = ESTADO_BARRA.get('ultimo_progreso', 0.0)
+                estado_anterior = ESTADO_BARRA.get('ultimo_estado', EstadoRobot.ESPERA)
+
+                if not ESTADO_BARRA.get('completada', False):
+                    if prog_actual >= 99.9:
+                        ESTADO_BARRA['completada'] = True
+                    elif (
+                        estado_anterior == EstadoRobot.COCINANDO
+                        and estado_actual in (EstadoRobot.ESPERA, EstadoRobot.PAUSADO)
+                        and prog_anterior > 0.0
+                        and prog_actual == 0.0
+                    ):
+                        ESTADO_BARRA['completada'] = True
+
+                ESTADO_BARRA['ultimo_progreso'] = prog_actual
+                ESTADO_BARRA['ultimo_estado'] = estado_actual
+
+                if ESTADO_BARRA.get('completada', False):
+                    barra_progreso.value = 1.0
+                    progreso_label.text = '100%'
+                    barra_progreso.props('color=green')
+                else:
+                    barra_progreso.value = prog_actual / 100.0
+                    progreso_label.text = f'{prog_actual:.0f}%'
+                    barra_progreso.props('color=indigo')
+
+                # Paso actual
+                receta = robot.receta_actual
+                if receta:
+                    receta_label.text = receta.nombre
+                    pasos = receta.pasos
+                    if pasos:
+                        idx = robot.indice_paso_actual
+                        if 0 <= idx < len(pasos):
+                            paso = pasos[idx]
+                            paso_label.text = f'Paso {idx+1}/{len(pasos)}: {paso.proceso.nombre}'
+
+                            if paso.proceso.es_manual():
+                                instrucciones_label.text = paso.proceso.instrucciones
+                                paso_card.set_visibility(True)
+                            else:
+                                paso_card.set_visibility(False)
+
+                            if estado_actual == EstadoRobot.ESPERANDO_CONFIRMACION:
+                                boton_confirmar.set_visibility(True)
+                            else:
+                                boton_confirmar.set_visibility(False)
+                        else:
+                            paso_card.set_visibility(False)
+                            boton_confirmar.set_visibility(False)
+                    else:
+                        paso_card.set_visibility(False)
+                        boton_confirmar.set_visibility(False)
+                else:
+                    receta_label.text = "(ninguna)"
+                    paso_card.set_visibility(False)
+                    boton_confirmar.set_visibility(False)
+
+            ui.timer(interval=0.5, callback=refrescar_ui)
+            refrescar_recetas()
+
+    # ==================================================================================
+    # PÁGINA PROCESOS
+    # ==================================================================================
 
     @ui.page('/procesos')
     def pagina_procesos() -> None:
-        _cabecera('procesos')
-        ui.page_title('Robot de cocina - Procesos')
+        ui.page_title('Procesos - Robot de Cocina')
+        drawer, _ = _crear_navegacion()
 
-        with ui.column().classes('q-pa-md q-gutter-md max-w-5xl mx-auto'):
-            with ui.row().classes('items-center justify-between w-full'):
-                with ui.column().classes('q-gutter-none'):
-                    ui.label('Procesos de cocina').classes('text-h4')
-                    ui.label(
-                        'Consulta los procesos de fábrica y define tus propios procesos personalizados.'
-                    ).classes('text-body2 text-grey-7')
-                ui.icon('precision_manufacturing').classes('text-h3 text-primary')
+        with ui.header().classes('bg-white dark:bg-gray-900 shadow-sm'):
+            with ui.row().classes('w-full items-center gap-3 px-6 py-3'):
+                ui.button(icon='menu', on_click=lambda: drawer.toggle()).props('flat dense round')
+                ui.label('Gestión de Procesos').classes('text-2xl font-bold text-gray-800 dark:text-white')
 
-            # --- Listado procesos base ---
-            with ui.card().classes('q-pa-md'):
-                ui.label('Procesos de fábrica').classes('text-h6 q-mb-xs')
-                ui.label(
-                    'Estos procesos vienen preconfigurados y no se pueden modificar ni borrar.'
-                ).classes('text-body2 text-grey-6 q-mb-sm')
+        with ui.column().classes('p-6 max-w-7xl mx-auto gap-6'):
 
-                columnas_procesos = [
-                    {'name': 'nombre', 'label': 'Nombre', 'field': 'nombre', 'align': 'left'},
-                    {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo', 'align': 'left'},
-                    {'name': 'temperatura', 'label': 'Temp (ºC)', 'field': 'temperatura', 'align': 'right'},
-                    {'name': 'tiempo', 'label': 'Tiempo (s)', 'field': 'tiempo', 'align': 'right'},
-                    {'name': 'velocidad', 'label': 'Vel.', 'field': 'velocidad', 'align': 'right'},
-                    {'name': 'origen', 'label': 'Origen', 'field': 'origen', 'align': 'left'},
-                ]
+            with ui.card().classes('shadow-xl'):
+                with ui.column().classes('p-6 gap-4'):
+                    with ui.row().classes('items-center justify-between'):
+                        ui.icon('factory', size='lg').classes('text-indigo-600')
+                        ui.label('Procesos de Fábrica').classes('text-2xl font-bold')
+                    ui.label('Procesos predefinidos del sistema (no editables)').classes('text-gray-600 dark:text-gray-400')
 
-                tabla_base = ui.table(
-                    columns=columnas_procesos,
-                    rows=[],
-                ).props('flat bordered wrap cell-class="px-4 py-2"').classes('w-full')
+                    tabla_base = ui.table(
+                        columns=[
+                            {'name': 'nombre', 'label': 'Nombre', 'field': 'nombre', 'align': 'left'},
+                            {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo', 'align': 'left'},
+                            {'name': 'tipo_ej', 'label': 'Ejecución', 'field': 'tipo_ej', 'align': 'center'},
+                            {'name': 'temp', 'label': 'Temp', 'field': 'temp', 'align': 'right'},
+                            {'name': 'tiempo', 'label': 'Tiempo', 'field': 'tiempo', 'align': 'right'},
+                            {'name': 'vel', 'label': 'Vel', 'field': 'vel', 'align': 'right'},
+                        ],
+                        rows=[],
+                        row_key='nombre'
+                    ).props('flat dense').classes('w-full')
 
-            # --- Crear proceso usuario ---
-            with ui.card().classes('q-pa-md'):
-                ui.label('Nuevo proceso de usuario').classes('text-h6 q-mb-xs')
-                ui.label(
-                    'Define parámetros básicos del proceso. Podrás reutilizarlo en tus recetas.'
-                ).classes('text-body2 text-grey-6 q-mb-md')
+            with ui.card().classes('shadow-xl bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-800 dark:to-gray-900'):
+                with ui.column().classes('p-6 gap-4'):
+                    with ui.row().classes('items-center gap-2'):
+                        ui.icon('add_circle', size='lg').classes('text-green-600')
+                        ui.label('Crear Nuevo Proceso').classes('text-2xl font-bold')
 
-                with ui.row().classes('q-gutter-md'):
-                    input_nombre = ui.input('Nombre del proceso').classes('col-12 col-md-5')
-                    input_tipo = ui.input('Tipo (preparación, cocción, amasado, etc.)').classes('col-12 col-md-9')
-                    # Temperatura limitada entre 0 y 120 ºC
-                    input_temp = ui.number(
-                        'Temperatura (0-120ºC, 0 si no aplica)',
-                        value=0,
-                        min=0,
-                        max=120,
-                    ).classes('col-12 col-md-6')
+                    with ui.grid(columns=2).classes('w-full gap-4'):
+                        input_nombre = ui.input('Nombre').props('outlined dense').classes('col-span-2')
+                        input_tipo = ui.input('Tipo (ej: preparación, cocción)').props('outlined dense')
+                        select_tipo_ej = ui.select(['manual', 'automatico'], label='Tipo de Ejecución', value='automatico').props('outlined dense')
+                        input_instrucciones = ui.textarea('Instrucciones (obligatorio para manuales)').props('outlined').classes('col-span-2')
+                        input_temp = ui.number('Temperatura (ºC)', value=0, min=0, max=120).props('outlined dense')
+                        input_tiempo = ui.number('Tiempo (s)', value=60, min=0).props('outlined dense')
+                        input_velocidad = ui.number('Velocidad (0-10)', value=0, min=0, max=10).props('outlined dense')
 
-                with ui.row().classes('q-gutter-md q-mt-xs'):
-                    # Tiempo en segundos, mínimo 0
-                    input_tiempo = ui.number(
-                        'Tiempo (segundos)',
-                        value=60,
-                        min=0,
-                    ).classes('col-12 col-md-6')
-                    # Velocidad limitada entre 0 y 10
-                    input_velocidad = ui.number(
-                        'Velocidad (0-10 si no aplica)',
-                        value=0,
-                        min=0,
-                        max=10,
-                    ).classes('col-12 col-md-8')
+                    def crear_proceso():
+                        try:
+                            nombre = (input_nombre.value or '').strip()
+                            tipo = (input_tipo.value or '').strip() or "generico"
+                            tipo_ej = select_tipo_ej.value
+                            instrucciones = (input_instrucciones.value or '').strip()
 
-                def crear_proceso():
-                    try:
-                        nombre = (input_nombre.value or '').strip()
-                        tipo = (input_tipo.value or '').strip() or "generico"
-                        temperatura = int(input_temp.value or 0)
-                        tiempo_segundos = int(input_tiempo.value or 0)
-                        velocidad = int(input_velocidad.value or 0)
-
-                        if not nombre:
-                            ui.notify('El nombre del proceso es obligatorio.', color='negative')
-                            return
-
-                        if not (0 <= velocidad <= 10):
-                            ui.notify('La velocidad debe estar entre 0 y 10.', color='negative')
-                            return
-
-                        if not (0 <= temperatura <= 120):
-                            ui.notify('La temperatura debe estar entre 0 y 120 ºC.', color='negative')
-                            return
-
-                        # Evitar nombres duplicados en procesos de usuario
-                        procesos_usuario = servicios.cargar_procesos_usuario()
-                        for p in procesos_usuario:
-                            if p.nombre == nombre:
-                                ui.notify('Ya existe un proceso de usuario con ese nombre.', color='negative')
+                            if not nombre:
+                                ui.notify('❌ El nombre es obligatorio', type='negative')
+                                return
+                            if tipo_ej == 'manual' and not instrucciones:
+                                ui.notify('❌ Los manuales requieren instrucciones', type='negative')
                                 return
 
-                        servicios.crear_proceso_usuario(
-                            nombre=nombre,
-                            tipo=tipo,
-                            temperatura=temperatura,
-                            tiempo_segundos=tiempo_segundos,
-                            velocidad=velocidad,
-                        )
-                        ui.notify('Proceso creado correctamente.', color='positive')
+                            servicios.crear_proceso_usuario(
+                                nombre=nombre,
+                                tipo=tipo,
+                                tipo_ejecucion=tipo_ej,
+                                instrucciones=instrucciones,
+                                temperatura=int(input_temp.value or 0),
+                                tiempo_segundos=int(input_tiempo.value or 0),
+                                velocidad=int(input_velocidad.value or 0),
+                            )
 
-                        input_nombre.value = ''
-                        input_tipo.value = ''
-                        input_temp.value = 0
-                        input_tiempo.value = 60
-                        input_velocidad.value = 0
+                            ui.notify('✅ Proceso creado', type='positive')
+                            input_nombre.value = ''
+                            input_tipo.value = ''
+                            input_instrucciones.value = ''
+                            refrescar_procesos()
+                        except Exception as ex:
+                            ui.notify(f'❌ Error: {ex}', type='negative')
 
-                        refrescar_listados()
-                    except Exception as ex:
-                        ui.notify(f'Error al crear proceso: {ex}', color='negative')
+                    ui.button('GUARDAR PROCESO', on_click=crear_proceso).props(
+                        'unelevated color=green size=lg icon=save'
+                    ).classes('w-full')
 
-                ui.button('Guardar proceso', on_click=crear_proceso, color='green').props('unelevated q-mt-md')
+            with ui.card().classes('shadow-xl'):
+                with ui.column().classes('p-6 gap-4'):
+                    with ui.row().classes('items-center justify-between'):
+                        with ui.row().classes('items-center gap-2'):
+                            ui.icon('precision_manufacturing', size='lg').classes('text-purple-600')
+                            ui.label('Mis Procesos').classes('text-2xl font-bold')
 
-            # --- Procesos usuario + borrar ---
-            with ui.card().classes('q-pa-md'):
-                ui.label('Procesos de usuario').classes('text-h6 q-mb-xs')
-                ui.label(
-                    'Crea procesos que luego podrás utilizar en tus propias recetas.'
-                ).classes('text-body2 text-grey-6 q-mb-sm')
+                        procesos_map = {}
+                        select_borrar = ui.select([], label='Eliminar proceso...').props('outlined dense').classes('w-64')
+                        ui.button('Eliminar', on_click=lambda: borrar_proceso()).props('flat color=red icon=delete')
 
-                tabla_usuario = ui.table(
-                    columns=columnas_procesos,
-                    rows=[],
-                ).props('flat bordered wrap cell-class="px-4 py-2"').classes('w-full q-mb-md')
+                    tabla_usuario = ui.table(
+                        columns=[
+                            {'name': 'nombre', 'label': 'Nombre', 'field': 'nombre', 'align': 'left'},
+                            {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo', 'align': 'left'},
+                            {'name': 'tipo_ej', 'label': 'Ejecución', 'field': 'tipo_ej', 'align': 'center'},
+                            {'name': 'temp', 'label': 'Temp', 'field': 'temp', 'align': 'right'},
+                            {'name': 'tiempo', 'label': 'Tiempo', 'field': 'tiempo', 'align': 'right'},
+                            {'name': 'vel', 'label': 'Vel', 'field': 'vel', 'align': 'right'},
+                        ],
+                        rows=[],
+                        row_key='nombre'
+                    ).props('flat dense').classes('w-full')
 
-                # Mapeo nombre -> proceso usuario (para borrar sin mostrar ID)
-                procesos_usuario_por_nombre: Dict[str, object] = {}
+                    def borrar_proceso():
+                        nombre = select_borrar.value
+                        if not nombre:
+                            ui.notify('Selecciona un proceso', type='warning')
+                            return
+                        proceso = procesos_map.get(nombre)
+                        if proceso:
+                            servicios.eliminar_proceso_usuario(proceso.id)
+                            ui.notify('Proceso eliminado', type='positive')
+                            refrescar_procesos()
 
-                with ui.row().classes('items-end q-gutter-sm'):
-                    select_proceso_borrar = ui.select(
-                        options=[],
-                        label='Proceso a eliminar',
-                        clearable=True,
-                    ).classes('col-12 col-md-7')
+            def refrescar_procesos():
+                procs_base = servicios.cargar_procesos_base()
+                tabla_base.rows = [
+                    {
+                        'nombre': p.nombre,
+                        'tipo': p.tipo,
+                        'tipo_ej': 'Manual' if p.es_manual() else 'Automático',
+                        'temp': f'{p.temperatura}º' if p.tipo_ejecucion == 'automatico' else '-',
+                        'tiempo': f'{p.tiempo_segundos}s' if p.tipo_ejecucion == 'automatico' else '-',
+                        'vel': p.velocidad if p.tipo_ejecucion == 'automatico' else '-',
+                    }
+                    for p in procs_base
+                ]
+                tabla_base.update()
 
-                    # Botón ancho y compacto con encadenado correcto
-                    (
-                        ui.button(
-                            'Eliminar\nproceso seleccionado',
-                            on_click=lambda: borrar_proceso(),
-                            color='red',
-                        )
-                        .props('outline icon=delete stack no-caps')
-                        .classes('col-12 col-md-4 text-center q-pa-sm')
-                        .style('min-width: 260px; height: 65px;')
-                    )
+                procs_user = servicios.cargar_procesos_usuario()
+                tabla_usuario.rows = [
+                    {
+                        'nombre': p.nombre,
+                        'tipo': p.tipo,
+                        'tipo_ej': 'Manual' if p.es_manual() else 'Automático',
+                        'temp': f'{p.temperatura}º' if p.tipo_ejecucion == 'automatico' else '-',
+                        'tiempo': f'{p.tiempo_segundos}s' if p.tipo_ejecucion == 'automatico' else '-',
+                        'vel': p.velocidad if p.tipo_ejecucion == 'automatico' else '-',
+                    }
+                    for p in procs_user
+                ]
+                tabla_usuario.update()
 
-                def borrar_proceso():
-                    nombre = select_proceso_borrar.value
-                    if not nombre:
-                        ui.notify('Selecciona un proceso de usuario.', color='warning')
-                        return
+                procesos_map.clear()
+                for p in procs_user:
+                    procesos_map[p.nombre] = p
+                select_borrar.options = list(procesos_map.keys())
+                select_borrar.update()
 
-                    proceso = procesos_usuario_por_nombre.get(nombre)
-                    if not proceso:
-                        ui.notify('Proceso no encontrado (puede haber cambiado).', color='negative')
-                        return
+            refrescar_procesos()
 
-                    servicios.eliminar_proceso_usuario(proceso.id)
-                    ui.notify('Proceso eliminado.', color='positive')
-                    refrescar_listados()
-
-        # --- Refrescar tablas ---
-        def refrescar_listados():
-            # Procesos base
-            procesos_base = servicios.cargar_procesos_base()
-            filas_base = [
-                {
-                    'nombre': p.nombre,
-                    'tipo': p.tipo,
-                    'temperatura': p.temperatura,
-                    'tiempo': p.tiempo_segundos,
-                    'velocidad': p.velocidad,
-                    'origen': p.origen,
-                }
-                for p in procesos_base
-            ]
-            tabla_base.rows = filas_base
-            tabla_base.update()
-
-            # Procesos usuario
-            procesos_usuario = servicios.cargar_procesos_usuario()
-            filas_usuario = [
-                {
-                    'nombre': p.nombre,
-                    'tipo': p.tipo,
-                    'temperatura': p.temperatura,
-                    'tiempo': p.tiempo_segundos,
-                    'velocidad': p.velocidad,
-                    'origen': p.origen,
-                }
-                for p in procesos_usuario
-            ]
-            tabla_usuario.rows = filas_usuario
-            tabla_usuario.update()
-
-            # Mapeo nombre -> proceso_usuario
-            procesos_usuario_por_nombre.clear()
-            for p in procesos_usuario:
-                procesos_usuario_por_nombre[p.nombre] = p
-
-            select_proceso_borrar.options = list(procesos_usuario_por_nombre.keys())
-            select_proceso_borrar.update()
-
-        refrescar_listados()
-
-    # ------------------------------------------------------------------
-    # PÁGINA DE RECETAS
-    # ------------------------------------------------------------------
+    # ==================================================================================
+    # PÁGINA RECETAS
+    # ==================================================================================
 
     @ui.page('/recetas')
     def pagina_recetas() -> None:
-        _cabecera('recetas')
-        ui.page_title('Robot de cocina - Recetas')
+        ui.page_title('Recetas - Robot de Cocina')
+        drawer, _ = _crear_navegacion()
 
-        with ui.column().classes('q-pa-md q-gutter-md max-w-5xl mx-auto'):
-            with ui.row().classes('items-center justify-between w-full'):
-                with ui.column().classes('q-gutter-none'):
-                    ui.label('Recetas del robot').classes('text-h4')
-                    ui.label(
-                        'Explora las recetas de fábrica, crea tus propias recetas guiadas y consulta sus pasos.'
-                    ).classes('text-body2 text-grey-7')
-                ui.icon('menu_book').classes('text-h3 text-primary')
+        with ui.header().classes('bg-white dark:bg-gray-900 shadow-sm'):
+            with ui.row().classes('w-full items-center gap-3 px-6 py-3'):
+                ui.button(icon='menu', on_click=lambda: drawer.toggle()).props('flat dense round')
+                ui.label('Gestión de Recetas').classes('text-2xl font-bold text-gray-800 dark:text-white')
 
-            columnas_recetas = [
-                {'name': 'nombre', 'label': 'Nombre', 'field': 'nombre', 'align': 'left'},
-                {'name': 'descripcion', 'label': 'Descripción', 'field': 'descripcion', 'align': 'left'},
-                {'name': 'origen', 'label': 'Origen', 'field': 'origen', 'align': 'left'},
-            ]
+        with ui.column().classes('p-6 max-w-7xl mx-auto gap-6'):
 
-            # --- Recetas base ---
-            with ui.card().classes('q-pa-md'):
-                ui.label('Recetas de fábrica').classes('text-h6 q-mb-xs')
-                ui.label(
-                    'Haz clic en una receta de fábrica para ver los pasos detallados.'
-                ).classes('text-body2 text-grey-6 q-mb-sm')
+            with ui.card().classes('shadow-xl'):
+                with ui.column().classes('p-6 gap-4'):
+                    with ui.row().classes('items-center gap-2'):
+                        ui.icon('factory', size='lg').classes('text-indigo-600')
+                        ui.label('Recetas de Fábrica').classes('text-2xl font-bold')
 
-                tabla_base = ui.table(
-                    columns=columnas_recetas,
-                    rows=[],
-                ).props('flat bordered wrap cell-class="px-4 py-2"').classes('w-full')
+                    recetas_base_grid = ui.row().classes('w-full gap-4 flex-wrap')
 
-            # --- Crear receta usuario ---
-            with ui.card().classes('q-pa-md'):
-                ui.label('Nueva receta de usuario').classes('text-h6 q-mb-xs')
-                ui.label(
-                    'Construye una receta añadiendo pasos en el orden en que deben ejecutarse.'
-                ).classes('text-body2 text-grey-6 q-mb-md')
+            with ui.card().classes('shadow-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900'):
+                with ui.column().classes('p-6 gap-4'):
+                    with ui.row().classes('items-center gap-2'):
+                        ui.icon('add_box', size='lg').classes('text-blue-600')
+                        ui.label('Crear Nueva Receta').classes('text-2xl font-bold')
 
-                with ui.row().classes('q-gutter-md'):
-                    input_nombre = ui.input('Nombre de la receta').classes('col-12 col-md-6')
-                    input_descripcion = ui.textarea('Descripción').classes('col-12')
+                    input_nombre_receta = ui.input('Nombre de la receta').props('outlined dense').classes('w-full')
+                    input_desc_receta = ui.textarea('Descripción').props('outlined').classes('w-full')
 
-                # Procesos (base + usuario) para formar pasos
-                procesos_label_a_obj: Dict[str, object] = {}
+                    with ui.row().classes('items-center justify-between'):
+                        ui.icon('shopping_cart', size='md').classes('text-blue-500')
+                        ui.label('Ingredientes').classes('text-xl font-bold')
+                    ingredientes_temp = []
 
-                with ui.row().classes('q-gutter-md q-mt-sm items-end'):
-                    select_proceso = ui.select(
-                        options=[],
-                        label='Proceso (base o usuario) a añadir',
-                        clearable=True,
-                    ).classes('col-12 col-md-10')
+                    with ui.row().classes('w-full gap-2 items-end'):
+                        ing_nombre = ui.input('Ingrediente').props('outlined dense').classes('flex-1')
+                        ing_cant = ui.number('Cantidad', value=1, min=1).props('outlined dense').classes('w-24')
+                        ing_unidad = ui.input('Unidad').props('outlined dense').classes('w-32')
+                        ing_nota = ui.input('Nota (opcional)').props('outlined dense').classes('flex-1')
+                        ui.button(icon='add', on_click=lambda: anadir_ing()).props('fab-mini color=green')
 
-                    (
-                        ui.button(
-                            'Añadir\npaso',
-                            on_click=lambda: anadir_paso(),
-                            color='primary',
-                        )
-                        .props('outline icon=add stack no-caps')
-                        .classes('col-12 col-md-3 text-center q-pa-sm')
-                        .style('min-width: 260px; height: 65px;')
-                    )
+                    tabla_ings = ui.table(
+                        columns=[
+                            {'name': 'n', 'label': 'Ingrediente', 'field': 'n'},
+                            {'name': 'c', 'label': 'Cantidad', 'field': 'c'},
+                            {'name': 'u', 'label': 'Unidad', 'field': 'u'},
+                            {'name': 'nt', 'label': 'Nota', 'field': 'nt'},
+                        ],
+                        rows=[]
+                    ).props('flat dense').classes('w-full')
 
-                ui.label(
-                    'Los pasos se añaden al final. Puedes eliminar un paso concreto en cualquier momento.'
-                ).classes('text-caption text-grey-6 q-mt-xs')
+                    def anadir_ing():
+                        if not ing_nombre.value:
+                            ui.notify('Nombre obligatorio', type='warning')
+                            return
+                        ingredientes_temp.append({
+                            'nombre': ing_nombre.value,
+                            'cantidad': ing_cant.value,
+                            'unidad': ing_unidad.value or '',
+                            'nota': ing_nota.value or ''
+                        })
+                        tabla_ings.rows = [{'n': i['nombre'], 'c': i['cantidad'], 'u': i['unidad'], 'nt': i['nota']} for i in ingredientes_temp]
+                        tabla_ings.update()
+                        ing_nombre.value = ''
+                        ing_cant.value = 1
+                        ing_unidad.value = ''
+                        ing_nota.value = ''
 
-                # Lista temporal de pasos: (orden, proceso_obj)
-                pasos_temp: List[Tuple[int, object]] = []
+                    with ui.row().classes('items-center justify-between'):
+                        ui.icon('list', size='md').classes('text-blue-600')
+                        ui.label('Pasos').classes('text-xl font-bold')
+                    pasos_temp = []
+                    procesos_map = {}
 
-                columnas_pasos = [
-                    {'name': 'orden', 'label': 'Orden', 'field': 'orden'},
-                    {'name': 'proceso', 'label': 'Proceso', 'field': 'proceso'},
-                    {'name': 'origen', 'label': 'Origen', 'field': 'origen'},
-                ]
+                    with ui.row().classes('w-full gap-2 items-end'):
+                        select_proc = ui.select([], label='Seleccionar proceso...').props('outlined dense').classes('flex-1')
+                        ui.button(icon='add', on_click=lambda: anadir_paso()).props('fab-mini color=green')
 
-                tabla_pasos = ui.table(
-                    columns=columnas_pasos,
-                    rows=[],
-                ).props('flat bordered dense').classes('w-full q-mt-md')
+                    tabla_pasos = ui.table(
+                        columns=[
+                            {'name': 'ord', 'label': '#', 'field': 'ord'},
+                            {'name': 'nom', 'label': 'Proceso', 'field': 'nom'},
+                            {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo'},
+                        ],
+                        rows=[]
+                    ).props('flat dense').classes('w-full')
 
-                with ui.row().classes('items-end q-gutter-sm q-mt-sm'):
-                    select_paso_borrar = ui.select(
-                        options=[],
-                        label='Paso a eliminar',
-                        clearable=True,
-                    ).classes('col-12 col-md-6')
+                    def anadir_paso():
+                        if not select_proc.value:
+                            ui.notify('Selecciona un proceso', type='warning')
+                            return
+                        proc = procesos_map.get(select_proc.value)
+                        if proc:
+                            pasos_temp.append((len(pasos_temp) + 1, proc))
+                            tabla_pasos.rows = [{'ord': idx+1, 'nom': p.nombre, 'tipo': 'Manual' if p.es_manual() else 'Automático'} for idx, (_, p) in enumerate(pasos_temp)]
+                            tabla_pasos.update()
 
-                    (
-                        ui.button(
-                            'Eliminar\npaso seleccionado',
-                            on_click=lambda: eliminar_paso(),
-                            color='orange',
-                        )
-                        .props('outline icon=delete stack no-caps')
-                        .classes('col-12 col-md-4 text-center q-pa-sm')
-                        .style('min-width: 260px; height: 65px;')
-                    )
+                    def crear_receta():
+                        nombre = (input_nombre_receta.value or '').strip()
+                        desc = (input_desc_receta.value or '').strip()
 
-                def refrescar_tabla_pasos():
-                    filas = [
-                        {
-                            'orden': idx + 1,
-                            'proceso': p.nombre,
-                            'origen': p.origen,
-                        }
-                        for idx, (_, p) in enumerate(pasos_temp)
-                    ]
-                    tabla_pasos.rows = filas
-                    tabla_pasos.update()
-
-                    opciones_borrar = [f"{idx + 1}. {p.nombre}" for idx, (_, p) in enumerate(pasos_temp)]
-                    select_paso_borrar.options = opciones_borrar
-                    select_paso_borrar.update()
-
-                def anadir_paso():
-                    label = select_proceso.value
-                    if not label:
-                        ui.notify('Selecciona un proceso para el paso.', color='warning')
-                        return
-                    proceso = procesos_label_a_obj.get(label)
-                    if not proceso:
-                        ui.notify('Proceso no encontrado (puede haber cambiado).', color='negative')
-                        return
-
-                    # Añadir al final: orden = len(pasos_temp) + 1
-                    pasos_temp.append((len(pasos_temp) + 1, proceso))
-                    refrescar_tabla_pasos()
-                    ui.notify('Paso añadido.', color='positive')
-
-                def eliminar_paso():
-                    etiqueta = select_paso_borrar.value
-                    if not etiqueta:
-                        ui.notify('Selecciona un paso para eliminar.', color='warning')
-                        return
-                    try:
-                        numero_str = etiqueta.split('.', 1)[0]
-                        numero = int(numero_str)
-                    except Exception:
-                        ui.notify('Formato de paso no válido.', color='negative')
-                        return
-
-                    indice = numero - 1
-                    if not (0 <= indice < len(pasos_temp)):
-                        ui.notify('Paso seleccionado fuera de rango.', color='negative')
-                        return
-
-                    pasos_temp.pop(indice)
-                    # Reasignar órdenes
-                    pasos_temp[:] = [(idx + 1, p) for idx, (_, p) in enumerate(pasos_temp)]
-                    refrescar_tabla_pasos()
-                    ui.notify('Paso eliminado.', color='positive')
-
-                def obtener_o_crear_proceso_usuario_desde_base(proceso_base) -> object:
-                    """
-                    A partir de un proceso base, busca si ya existe un proceso de usuario
-                    con mismos parámetros; si no, lo crea y lo devuelve.
-                    """
-                    procesos_usuario = servicios.cargar_procesos_usuario()
-                    for p in procesos_usuario:
-                        if (
-                            p.nombre == proceso_base.nombre
-                            and p.tipo == proceso_base.tipo
-                            and p.temperatura == proceso_base.temperatura
-                            and p.tiempo_segundos == proceso_base.tiempo_segundos
-                            and p.velocidad == proceso_base.velocidad
-                        ):
-                            return p
-
-                    # No existe, lo creamos como proceso de usuario "clonado"
-                    servicios.crear_proceso_usuario(
-                        nombre=proceso_base.nombre,
-                        tipo=proceso_base.tipo,
-                        temperatura=proceso_base.temperatura,
-                        tiempo_segundos=proceso_base.tiempo_segundos,
-                        velocidad=proceso_base.velocidad,
-                    )
-
-                    procesos_usuario = servicios.cargar_procesos_usuario()
-                    for p in procesos_usuario:
-                        if (
-                            p.nombre == proceso_base.nombre
-                            and p.tipo == proceso_base.tipo
-                            and p.temperatura == proceso_base.temperatura
-                            and p.tiempo_segundos == proceso_base.tiempo_segundos
-                            and p.velocidad == proceso_base.velocidad
-                        ):
-                            return p
-
-                    raise RuntimeError('No se pudo localizar el proceso de usuario creado a partir del base.')
-
-                def crear_receta():
-                    nombre = (input_nombre.value or '').strip()
-                    descripcion = (input_descripcion.value or '').strip()
-
-                    if not nombre:
-                        ui.notify('El nombre de la receta es obligatorio.', color='negative')
-                        return
-                    if not pasos_temp:
-                        ui.notify('Añade al menos un paso a la receta.', color='negative')
-                        return
-
-                    # Evitar nombres duplicados en recetas de usuario
-                    recetas_usuario = servicios.cargar_recetas_usuario()
-                    for r in recetas_usuario:
-                        if r.nombre == nombre:
-                            ui.notify('Ya existe una receta de usuario con ese nombre.', color='negative')
+                        if not nombre or not pasos_temp:
+                            ui.notify('Nombre y pasos obligatorios', type='negative')
                             return
 
-                    # Construir lista de (orden, id_proceso_usuario)
-                    pasos_para_guardar: List[Tuple[int, int]] = []
-                    try:
-                        for orden, proceso in pasos_temp:
-                            if proceso.origen == 'usuario':
-                                pasos_para_guardar.append((orden, proceso.id))
-                            else:
-                                # Es un proceso base; creamos/obtenemos el equivalente de usuario
-                                proceso_usr = obtener_o_crear_proceso_usuario_desde_base(proceso)
-                                pasos_para_guardar.append((orden, proceso_usr.id))
-                    except Exception as ex:
-                        ui.notify(f'Error preparando los pasos: {ex}', color='negative')
-                        return
+                        try:
+                            pasos_guardar = []
+                            for orden, proc in pasos_temp:
+                                if proc.origen == 'usuario':
+                                    pasos_guardar.append((orden, proc.id))
+                                else:
+                                    procs_usr = servicios.cargar_procesos_usuario()
+                                    encontrado = None
+                                    for pu in procs_usr:
+                                        if (pu.nombre == proc.nombre and pu.tipo == proc.tipo and
+                                                pu.tipo_ejecucion == proc.tipo_ejecucion):
+                                            encontrado = pu
+                                            break
+                                    if not encontrado:
+                                        encontrado = servicios.crear_proceso_usuario(
+                                            nombre=proc.nombre,
+                                            tipo=proc.tipo,
+                                            tipo_ejecucion=proc.tipo_ejecucion,
+                                            instrucciones=proc.instrucciones,
+                                            temperatura=proc.temperatura,
+                                            tiempo_segundos=proc.tiempo_segundos,
+                                            velocidad=proc.velocidad,
+                                        )
+                                    pasos_guardar.append((orden, encontrado.id))
 
-                    try:
-                        servicios.crear_receta_usuario(
-                            nombre=nombre,
-                            descripcion=descripcion,
-                            pasos=pasos_para_guardar,
-                        )
-                        ui.notify('Receta creada correctamente.', color='positive')
+                            servicios.crear_receta_usuario(
+                                nombre=nombre,
+                                descripcion=desc,
+                                ingredientes=ingredientes_temp,
+                                pasos=pasos_guardar
+                            )
 
-                        input_nombre.value = ''
-                        input_descripcion.value = ''
-                        pasos_temp.clear()
-                        refrescar_tabla_pasos()
-                        refrescar_listados_recetas()
-                    except Exception as ex:
-                        ui.notify(f'Error al crear receta: {ex}', color='negative')
+                            ui.notify('Receta creada', type='positive')
+                            input_nombre_receta.value = ''
+                            input_desc_receta.value = ''
+                            ingredientes_temp.clear()
+                            pasos_temp.clear()
+                            tabla_ings.rows = []
+                            tabla_pasos.rows = []
+                            tabla_ings.update()
+                            tabla_pasos.update()
+                            refrescar_recetas()
+                        except Exception as ex:
+                            ui.notify(f'Error: {ex}', type='negative')
 
-                ui.button(
-                    'Guardar receta',
-                    on_click=crear_receta,
-                    color='green',
-                ).props('unelevated q-mt-md')
+                    ui.button('GUARDAR RECETA', on_click=crear_receta).props(
+                        'unelevated color=blue size=lg icon=save'
+                    ).classes('w-full mt-4')
 
-            # --- Recetas usuario + borrar ---
-            with ui.card().classes('q-pa-md'):
-                ui.label('Recetas de usuario').classes('text-h6 q-mb-xs')
-                ui.label(
-                    'Tus propias recetas guiadas. Haz clic en una fila para ver sus pasos.'
-                ).classes('text-body2 text-grey-6 q-mb-sm')
+            with ui.card().classes('shadow-xl'):
+                with ui.column().classes('p-6 gap-4'):
+                    with ui.row().classes('items-center gap-2'):
+                        ui.icon('menu_book', size='lg').classes('text-indigo-600')
+                        ui.label('Mis Recetas').classes('text-2xl font-bold')
 
-                tabla_usuario = ui.table(
-                    columns=columnas_recetas,
-                    rows=[],
-                ).props('flat bordered wrap cell-class="px-4 py-2"').classes('w-full q-mb-md')
+                    recetas_user_grid = ui.row().classes('w-full gap-4 flex-wrap')
 
-                recetas_base_por_nombre: Dict[str, object] = {}
-                recetas_usuario_por_nombre: Dict[str, object] = {}
+            def mostrar_detalle_receta(receta):
+                with ui.dialog() as dlg, ui.card().classes('max-w-2xl'):
+                    with ui.column().classes('p-6 gap-4'):
+                        ui.label(receta.nombre).classes('text-3xl font-bold')
+                        ui.label(receta.descripcion).classes('text-gray-600')
 
-                with ui.row().classes('items-end q-gutter-sm'):
-                    select_receta_borrar = ui.select(
-                        options=[],
-                        label='Receta de usuario a eliminar',
-                        clearable=True,
-                    ).classes('col-12 col-md-9')
+                        if receta.ingredientes:
+                            with ui.row().classes('items-center justify-between'):
+                                ui.icon('shopping_cart', size='md').classes('text-blue-500')
+                                ui.label('Ingredientes:').classes('text-xl font-bold')
+                            for ing in receta.ingredientes:
+                                nota = f" ({ing['nota']})" if ing.get('nota') else ""
+                                ui.label(f"• {ing['nombre']}: {ing['cantidad']} {ing['unidad']}{nota}").classes('ml-4')
 
-                    (
-                        ui.button(
-                            'Eliminar\nreceta seleccionada',
-                            on_click=lambda: borrar_receta(),
-                            color='red',
-                        )
-                        .props('outline icon=delete stack no-caps')
-                        .classes('col-12 col-md-4 text-center q-pa-sm')
-                        .style('min-width: 260px; height: 65px;')
-                    )
+                        with ui.row().classes('items-center justify-between'): 
+                            ui.icon('list', size='md').classes('text-blue-600')
+                            ui.label('Pasos:').classes('text-xl font-bold')
+                        for paso in receta.pasos:
+                            tipo_emoji = '(Manual)' if paso.proceso.es_manual() else '(Automático)'
+                            ui.label(f"{paso.orden}. {tipo_emoji} {paso.proceso.nombre}").classes('ml-4 font-medium')
+                            if paso.proceso.es_manual():
+                                ui.label(paso.proceso.instrucciones).classes('ml-8 text-sm text-gray-600 italic')
 
-                def mostrar_pasos_receta(receta) -> None:
-                    with ui.dialog() as dialog, ui.card():
-                        ui.label(f'Pasos de "{receta.nombre}"').classes('text-h6 q-mb-xs')
-                        ui.label(receta.descripcion).classes('text-body2 text-grey-7 q-mb-sm')
-                        if not receta.pasos:
-                            ui.label('La receta no tiene pasos definidos.')
-                        else:
-                            for paso in receta.pasos:
-                                desc = paso.proceso.descripcion_resumida()
-                                ui.label(f"{paso.orden}. {desc}")
-                        ui.button('Cerrar', on_click=dialog.close).classes('q-mt-sm')
-                    dialog.open()
+                        ui.button('Cerrar', on_click=dlg.close).props('outlined').classes('mt-4')
+                dlg.open()
 
-                def _extraer_nombre_desde_evento(e: Any) -> str | None:
-                    """
-                    Intenta extraer el 'nombre' de la fila a partir de e.args
-                    de forma robusta para varias versiones de NiceGUI.
-                    """
-                    args = e.args
+            def refrescar_recetas():
+                procesos_map.clear()
+                procs_base = servicios.cargar_procesos_base()
+                procs_usr = servicios.cargar_procesos_usuario()
+                opciones = []
 
-                    # Caso 1: dict con 'row'
-                    if isinstance(args, dict):
-                        row = args.get('row') or args
-                        if isinstance(row, dict):
-                            return row.get('nombre')
+                for p in procs_base:
+                    label = f"[Base] {p.nombre} {'(Manual)' if p.es_manual() else '(Automático)'}"
+                    procesos_map[label] = p
+                    opciones.append(label)
 
-                    # Caso 2: lista/tupla de argumentos
-                    if isinstance(args, (list, tuple)):
-                        # Buscar dict con 'nombre'
-                        for item in args:
-                            if isinstance(item, dict) and 'nombre' in item:
-                                return item.get('nombre')
-                        # En algunos ejemplos e.args[1] puede ser la fila
-                        if len(args) >= 2 and isinstance(args[1], dict):
-                            return args[1].get('nombre')
+                for p in procs_usr:
+                    label = f"[Usuario] {p.nombre} {'(Manual)' if p.es_manual() else '(Automático)'}"
+                    procesos_map[label] = p
+                    opciones.append(label)
 
-                    return None
+                select_proc.options = opciones
+                select_proc.update()
 
-                def on_click_receta_base(e):
-                    nombre = _extraer_nombre_desde_evento(e)
-                    if not nombre:
-                        return
-                    receta = recetas_base_por_nombre.get(nombre)
-                    if receta:
-                        mostrar_pasos_receta(receta)
+                recetas_base_grid.clear()
+                recs_base = servicios.cargar_recetas_base()
+                for rec in recs_base:
+                    with recetas_base_grid:
+                        with ui.card().classes('w-64 cursor-pointer hover:shadow-2xl transition-shadow').on(
+                            'click', lambda r=rec: mostrar_detalle_receta(r)
+                        ):
+                            with ui.column().classes('p-4 gap-2'):
+                                ui.icon('restaurant', size='xl').classes('text-indigo-600')
+                                ui.label(rec.nombre).classes('font-bold text-lg')
+                                ui.label((rec.descripcion or '')[:60] + '...').classes('text-sm text-gray-600')
+                                ui.badge(f'{len(rec.pasos)} pasos', color='indigo')
 
-                def on_click_receta_usuario(e):
-                    nombre = _extraer_nombre_desde_evento(e)
-                    if not nombre:
-                        return
-                    receta = recetas_usuario_por_nombre.get(nombre)
-                    if receta:
-                        mostrar_pasos_receta(receta)
+                recetas_user_grid.clear()
+                recs_usr = servicios.cargar_recetas_usuario()
+                for rec in recs_usr:
+                    with recetas_user_grid:
+                        with ui.card().classes('w-64 cursor-pointer hover:shadow-2xl transition-shadow').on(
+                            'click', lambda r=rec: mostrar_detalle_receta(r)
+                        ):
+                            with ui.column().classes('p-4 gap-2'):
+                                ui.icon('restaurant', size='xl').classes('text-indigo-600')
+                                ui.label(rec.nombre).classes('font-bold text-lg')
+                                ui.label(rec.descripcion[:60] + '...' if rec.descripcion else 'Sin descripción').classes('text-sm text-gray-600')
+                                ui.badge(f'{len(rec.pasos)} pasos', color='pink')
 
-                # Evento correcto: 'row-click'
-                tabla_base.on('row-click', on_click_receta_base)
-                tabla_usuario.on('row-click', on_click_receta_usuario)
-
-                def borrar_receta():
-                    nombre = select_receta_borrar.value
-                    if not nombre:
-                        ui.notify('Selecciona una receta de usuario.', color='warning')
-                        return
-                    receta = recetas_usuario_por_nombre.get(nombre)
-                    if not receta:
-                        ui.notify('Receta de usuario no encontrada.', color='negative')
-                        return
-
-                    servicios.eliminar_receta_usuario(receta.id)
-                    ui.notify('Receta eliminada.', color='positive')
-                    refrescar_listados_recetas()
-
-        # --- Refrescar tablas y opciones de selects ---
-        def refrescar_listados_recetas():
-            # Recetas base
-            recetas_base = servicios.cargar_recetas_base()
-            filas_base = [
-                {
-                    'nombre': r.nombre,
-                    'descripcion': r.descripcion,
-                    'origen': r.origen,
-                }
-                for r in recetas_base
-            ]
-            tabla_base.rows = filas_base
-            tabla_base.update()
-
-            # Recetas usuario
-            recetas_usuario = servicios.cargar_recetas_usuario()
-            filas_usuario = [
-                {
-                    'nombre': r.nombre,
-                    'descripcion': r.descripcion,
-                    'origen': r.origen,
-                }
-                for r in recetas_usuario
-            ]
-            tabla_usuario.rows = filas_usuario
-            tabla_usuario.update()
-
-            # Mapear nombres -> recetas
-            recetas_base_por_nombre.clear()
-            for r in recetas_base:
-                recetas_base_por_nombre[r.nombre] = r
-
-            recetas_usuario_por_nombre.clear()
-            for r in recetas_usuario:
-                recetas_usuario_por_nombre[r.nombre] = r
-
-            select_receta_borrar.options = list(recetas_usuario_por_nombre.keys())
-            select_receta_borrar.update()
-
-            # Actualizar lista de procesos (base + usuario) para crear pasos
-            procesos_label_a_obj.clear()
-            procesos_base = servicios.cargar_procesos_base()
-            procesos_usuario_ref = servicios.cargar_procesos_usuario()
-
-            etiquetas_proc: List[str] = []
-            for p in procesos_base:
-                label = f"[Base] {p.nombre}"
-                procesos_label_a_obj[label] = p
-                etiquetas_proc.append(label)
-            for p in procesos_usuario_ref:
-                label = f"[Usuario] {p.nombre}"
-                procesos_label_a_obj[label] = p
-                etiquetas_proc.append(label)
-
-            select_proceso.options = etiquetas_proc
-            select_proceso.update()
-
-        refrescar_listados_recetas()
+            refrescar_recetas()

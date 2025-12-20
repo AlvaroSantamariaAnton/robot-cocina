@@ -1,6 +1,6 @@
 import threading
 import time
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Dict, Any
 
 
 # =========================
@@ -38,6 +38,8 @@ class ProcesoCocina:
         id_: Optional[int],
         nombre: str,
         tipo: str,
+        tipo_ejecucion: str,
+        instrucciones: Optional[str],
         temperatura: int,
         tiempo_segundos: int,
         velocidad: int,
@@ -46,6 +48,8 @@ class ProcesoCocina:
         self._id = id_
         self._nombre = nombre
         self._tipo = tipo
+        self._tipo_ejecucion = tipo_ejecucion  # "manual" o "automatico"
+        self._instrucciones = instrucciones or ""
         self._temperatura = temperatura
         self._tiempo_segundos = tiempo_segundos
         self._velocidad = velocidad
@@ -64,6 +68,14 @@ class ProcesoCocina:
         return self._tipo
 
     @property
+    def tipo_ejecucion(self) -> str:
+        return self._tipo_ejecucion
+
+    @property
+    def instrucciones(self) -> str:
+        return self._instrucciones
+
+    @property
     def temperatura(self) -> int:
         return self._temperatura
 
@@ -79,22 +91,29 @@ class ProcesoCocina:
     def origen(self) -> str:
         return self._origen
 
+    def es_manual(self) -> bool:
+        """Devuelve True si el proceso requiere intervención manual."""
+        return self._tipo_ejecucion == "manual"
+
     def descripcion_resumida(self) -> str:
         """Devuelve una descripción corta tipo: 'Picar verduras - 5s - vel 3'."""
         partes = [self._nombre]
-        if self._temperatura:
-            partes.append(f"{self._temperatura}ºC")
-        if self._tiempo_segundos:
-            partes.append(f"{self._tiempo_segundos}s")
-        if self._velocidad:
-            partes.append(f"vel {self._velocidad}")
+        if self._tipo_ejecucion == "manual":
+            partes.append("[MANUAL]")
+        else:
+            if self._temperatura:
+                partes.append(f"{self._temperatura}ºC")
+            if self._tiempo_segundos:
+                partes.append(f"{self._tiempo_segundos}s")
+            if self._velocidad:
+                partes.append(f"vel {self._velocidad}")
         return " - ".join(partes)
 
     def __repr__(self) -> str:
         return (
             f"ProcesoCocina(id={self._id}, nombre={self._nombre!r}, tipo={self._tipo!r}, "
-            f"temp={self._temperatura}, tiempo={self._tiempo_segundos}, "
-            f"velocidad={self._velocidad}, origen={self._origen!r})"
+            f"tipo_ejecucion={self._tipo_ejecucion!r}, temp={self._temperatura}, "
+            f"tiempo={self._tiempo_segundos}, velocidad={self._velocidad}, origen={self._origen!r})"
         )
 
 
@@ -125,12 +144,14 @@ class Receta:
         id_: Optional[int],
         nombre: str,
         descripcion: str,
+        ingredientes: List[Dict[str, Any]],
         pasos: List[PasoReceta],
         origen: str = "base",
     ) -> None:
         self._id = id_
         self._nombre = nombre
         self._descripcion = descripcion
+        self._ingredientes = ingredientes  # Lista de dicts: {nombre, cantidad, unidad, nota}
         # Aseguramos que los pasos están ordenados
         self._pasos = sorted(pasos, key=lambda p: p.orden)
         self._origen = origen
@@ -146,6 +167,10 @@ class Receta:
     @property
     def descripcion(self) -> str:
         return self._descripcion
+
+    @property
+    def ingredientes(self) -> List[Dict[str, Any]]:
+        return list(self._ingredientes)
 
     @property
     def pasos(self) -> List[PasoReceta]:
@@ -175,6 +200,7 @@ class EstadoRobot:
     ESPERA = "en_espera"
     COCINANDO = "cocinando"
     PAUSADO = "pausado"
+    ESPERANDO_CONFIRMACION = "esperando_confirmacion"  # Nuevo: esperando que usuario confirme paso manual
     ERROR = "error"
 
 
@@ -191,6 +217,7 @@ class RobotCocina:
     - Hilo de cocción con progreso
     - PAUSAR / REANUDAR
     - CANCELAR (detener_coccion)
+    - Confirmación de pasos manuales
     """
 
     def __init__(
@@ -204,6 +231,7 @@ class RobotCocina:
         self._hilo_coccion: Optional[threading.Thread] = None
         self._parar: bool = False
         self._pausado: bool = False
+        self._confirmado: bool = False  # Para pasos manuales
 
         # Para poder reanudar desde donde se pausó
         self._indice_paso_actual: int = 0   # índice 0..N-1 en self._receta_actual.pasos
@@ -250,12 +278,14 @@ class RobotCocina:
             self._reset_progreso_y_posicion()
             self._parar = False
             self._pausado = False
+            self._confirmado = False
             self._notificar_cambio()
 
     def apagar(self) -> None:
         with self._lock:
             self._parar = True
             self._pausado = False
+            self._confirmado = False
             self._receta_actual = None
             self._estado = EstadoRobot.APAGADO
             self._reset_progreso_y_posicion()
@@ -275,6 +305,7 @@ class RobotCocina:
             self._reset_progreso_y_posicion()
             self._parar = False
             self._pausado = False
+            self._confirmado = False
             self._notificar_cambio()
 
     # ----- PAUSAR / REANUDAR / CANCELAR -----
@@ -295,19 +326,32 @@ class RobotCocina:
         Resetea el progreso y la posición de la receta.
         """
         with self._lock:
-            if self._estado in (EstadoRobot.COCINANDO, EstadoRobot.PAUSADO, EstadoRobot.ESPERA):
+            if self._estado in (EstadoRobot.COCINANDO, EstadoRobot.PAUSADO, 
+                               EstadoRobot.ESPERA, EstadoRobot.ESPERANDO_CONFIRMACION):
                 self._parar = True
                 self._pausado = False
+                self._confirmado = False
                 self._reset_progreso_y_posicion()
                 self._estado = EstadoRobot.ESPERA
                 self._notificar_cambio()
+
+    # ----- Confirmación de paso manual -----
+
+    def confirmar_paso_manual(self) -> None:
+        """
+        El usuario confirma que ha completado el paso manual.
+        El hilo de cocción continuará.
+        """
+        with self._lock:
+            if self._estado == EstadoRobot.ESPERANDO_CONFIRMACION:
+                self._confirmado = True
 
     # ----- Iniciar / reanudar cocción -----
 
     def iniciar_coccion(self) -> None:
         """
         - Si el robot está en ESPERA: inicia la receta desde 0.
-        - Si el robot está en PAUSADO: reanuda desde el punto donde se pausó.
+        - Si el robot está en PAUSADO o ESPERANDO_CONFIRMACION: reanuda desde el punto donde se pausó.
         """
         with self._lock:
             if self._estado == EstadoRobot.APAGADO:
@@ -315,16 +359,18 @@ class RobotCocina:
             if self._receta_actual is None:
                 raise RecetaNoSeleccionadaError("No hay ninguna receta seleccionada.")
 
-            # ¿Reanudar desde pausa?
-            if self._estado == EstadoRobot.PAUSADO:
+            # ¿Reanudar desde pausa o confirmación?
+            if self._estado in (EstadoRobot.PAUSADO, EstadoRobot.ESPERANDO_CONFIRMACION):
                 # No reseteamos progreso ni posición
                 self._pausado = False
                 self._parar = False
+                self._confirmado = False
             else:
                 # Inicio desde cero
                 self._reset_progreso_y_posicion()
                 self._parar = False
                 self._pausado = False
+                self._confirmado = False
 
             # Si ya hay un hilo corriendo, lo marcamos para parar
             if self._hilo_coccion and self._hilo_coccion.is_alive():
@@ -345,6 +391,8 @@ class RobotCocina:
         """
         Ejecuta la receta actual de forma incremental, permitiendo pausa y cancelación.
         Guarda en qué paso y segundo va, para poder reanudar.
+        
+        Los pasos manuales pausan automáticamente y esperan confirmación del usuario.
         """
         try:
             with self._lock:
@@ -371,10 +419,39 @@ class RobotCocina:
                         break  # receta completada
 
                     paso = pasos[i]
-                    duracion = max(1, paso.proceso.tiempo_segundos)
-
-                    # Por si la receta ha cambiado externamente
+                    proceso = paso.proceso
                     self._indice_paso_actual = i
+
+                # ===== PASO MANUAL =====
+                if proceso.es_manual():
+                    with self._lock:
+                        self._estado = EstadoRobot.ESPERANDO_CONFIRMACION
+                        self._confirmado = False
+                        self._notificar_cambio()
+
+                    # Esperar confirmación del usuario
+                    while True:
+                        time.sleep(0.5)
+                        with self._lock:
+                            if self._parar or self._estado == EstadoRobot.APAGADO:
+                                raise ProcesoInterrumpidoError("Proceso cancelado por el usuario.")
+                            if self._confirmado:
+                                break
+
+                    # Usuario confirmó, avanzar al siguiente paso
+                    with self._lock:
+                        i += 1
+                        t = 0
+                        self._indice_paso_actual = i
+                        self._segundo_en_paso = 0
+                        # Calcular progreso
+                        self._progreso = (i / total_pasos) * 100.0
+                        self._estado = EstadoRobot.COCINANDO
+                        self._notificar_cambio()
+                    continue
+
+                # ===== PASO AUTOMÁTICO =====
+                duracion = max(1, proceso.tiempo_segundos)
 
                 # Ejecutar los "segundos" de este paso
                 while t < duracion:

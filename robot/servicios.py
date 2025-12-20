@@ -1,5 +1,6 @@
 import sqlite3
-from typing import List, Optional, Dict, Tuple
+import json
+from typing import List, Optional, Dict, Tuple, Any
 
 from .modelos import ProcesoCocina, PasoReceta, Receta
 from data.init_db import conectar, reinicio_fabrica, inicializar_bd
@@ -12,13 +13,15 @@ from data.init_db import conectar, reinicio_fabrica, inicializar_bd
 def _fila_a_proceso_base(fila: Tuple) -> ProcesoCocina:
     """
     Convierte una fila de procesos_base a un objeto ProcesoCocina.
-    Estructura de fila: (id, nombre, tipo, temperatura, tiempo_segundos, velocidad)
+    Estructura de fila: (id, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad)
     """
-    id_, nombre, tipo, temperatura, tiempo_segundos, velocidad = fila
+    id_, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad = fila
     return ProcesoCocina(
         id_=id_,
         nombre=nombre,
         tipo=tipo,
+        tipo_ejecucion=tipo_ejecucion,
+        instrucciones=instrucciones,
         temperatura=temperatura,
         tiempo_segundos=tiempo_segundos,
         velocidad=velocidad,
@@ -29,13 +32,15 @@ def _fila_a_proceso_base(fila: Tuple) -> ProcesoCocina:
 def _fila_a_proceso_usuario(fila: Tuple) -> ProcesoCocina:
     """
     Convierte una fila de procesos_usuario a un objeto ProcesoCocina.
-    Estructura de fila: (id, nombre, tipo, temperatura, tiempo_segundos, velocidad)
+    Estructura de fila: (id, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad)
     """
-    id_, nombre, tipo, temperatura, tiempo_segundos, velocidad = fila
+    id_, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad = fila
     return ProcesoCocina(
         id_=id_,
         nombre=nombre,
         tipo=tipo,
+        tipo_ejecucion=tipo_ejecucion,
+        instrucciones=instrucciones,
         temperatura=temperatura,
         tiempo_segundos=tiempo_segundos,
         velocidad=velocidad,
@@ -56,7 +61,7 @@ def cargar_procesos_base() -> List[ProcesoCocina]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, nombre, tipo, temperatura, tiempo_segundos, velocidad
+            SELECT id, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad
             FROM procesos_base
             ORDER BY id;
             """
@@ -76,7 +81,7 @@ def cargar_procesos_usuario() -> List[ProcesoCocina]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, nombre, tipo, temperatura, tiempo_segundos, velocidad
+            SELECT id, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad
             FROM procesos_usuario
             ORDER BY id;
             """
@@ -96,7 +101,7 @@ def obtener_proceso_base_por_id(id_proceso: int) -> Optional[ProcesoCocina]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, nombre, tipo, temperatura, tiempo_segundos, velocidad
+            SELECT id, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad
             FROM procesos_base
             WHERE id = ?;
             """,
@@ -119,7 +124,7 @@ def obtener_proceso_usuario_por_id(id_proceso: int) -> Optional[ProcesoCocina]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, nombre, tipo, temperatura, tiempo_segundos, velocidad
+            SELECT id, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad
             FROM procesos_usuario
             WHERE id = ?;
             """,
@@ -136,6 +141,8 @@ def obtener_proceso_usuario_por_id(id_proceso: int) -> Optional[ProcesoCocina]:
 def crear_proceso_usuario(
     nombre: str,
     tipo: str,
+    tipo_ejecucion: str,
+    instrucciones: str,
     temperatura: int,
     tiempo_segundos: int,
     velocidad: int,
@@ -149,10 +156,10 @@ def crear_proceso_usuario(
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO procesos_usuario (nombre, tipo, temperatura, tiempo_segundos, velocidad)
-            VALUES (?, ?, ?, ?, ?);
+            INSERT INTO procesos_usuario (nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad)
+            VALUES (?, ?, ?, ?, ?, ?, ?);
             """,
-            (nombre, tipo, temperatura, tiempo_segundos, velocidad),
+            (nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad),
         )
         id_nuevo = cur.lastrowid
         conn.commit()
@@ -160,6 +167,8 @@ def crear_proceso_usuario(
             id_=id_nuevo,
             nombre=nombre,
             tipo=tipo,
+            tipo_ejecucion=tipo_ejecucion,
+            instrucciones=instrucciones,
             temperatura=temperatura,
             tiempo_segundos=tiempo_segundos,
             velocidad=velocidad,
@@ -204,7 +213,7 @@ def eliminar_proceso_usuario(id_proceso: int) -> None:
 
 def _cargar_recetas_generico(
     tabla_recetas: str,
-    tabla_pasosp: str,
+    tabla_pasos: str,
     tabla_procesos: str,
     origen: str,
 ) -> List[Receta]:
@@ -212,7 +221,7 @@ def _cargar_recetas_generico(
     Función interna para cargar recetas y convertirlas en objetos Receta.
     Parámetros:
         tabla_recetas: 'recetas_base' o 'recetas_usuario'
-        tabla_pasosp: 'pasos_receta_base' o 'pasos_receta_usuario'
+        tabla_pasos: 'pasos_receta_base' o 'pasos_receta_usuario'
         tabla_procesos: 'procesos_base' o 'procesos_usuario'
         origen: 'base' o 'usuario'
     """
@@ -223,7 +232,7 @@ def _cargar_recetas_generico(
         # 1) Cargar todas las recetas
         cur.execute(
             f"""
-            SELECT id, nombre, descripcion
+            SELECT id, nombre, descripcion, ingredientes
             FROM {tabla_recetas}
             ORDER BY id;
             """
@@ -243,10 +252,12 @@ def _cargar_recetas_generico(
                    pr.id,
                    pr.nombre,
                    pr.tipo,
+                   pr.tipo_ejecucion,
+                   pr.instrucciones,
                    pr.temperatura,
                    pr.tiempo_segundos,
                    pr.velocidad
-            FROM {tabla_pasosp} AS p
+            FROM {tabla_pasos} AS p
             JOIN {tabla_procesos} AS pr
                 ON p.id_proceso = pr.id
             WHERE p.id_receta IN ({marcadores})
@@ -258,11 +269,14 @@ def _cargar_recetas_generico(
 
         # Agrupar por id_receta
         pasos_por_receta: Dict[int, List[PasoReceta]] = {}
-        for id_receta, orden, pid, pnombre, ptipo, ptemp, ptiempo, pvel in filas_pasos:
+        for fila in filas_pasos:
+            id_receta, orden, pid, pnombre, ptipo, ptipo_ej, pinstr, ptemp, ptiempo, pvel = fila
             proceso = ProcesoCocina(
                 id_=pid,
                 nombre=pnombre,
                 tipo=ptipo,
+                tipo_ejecucion=ptipo_ej,
+                instrucciones=pinstr,
                 temperatura=ptemp,
                 tiempo_segundos=ptiempo,
                 velocidad=pvel,
@@ -273,13 +287,23 @@ def _cargar_recetas_generico(
 
         # 3) Construir objetos Receta
         recetas: List[Receta] = []
-        for id_receta, nombre, descripcion in filas_recetas:
+        for id_receta, nombre, descripcion, ingredientes_json in filas_recetas:
             pasos = pasos_por_receta.get(id_receta, [])
+            
+            # Parsear ingredientes JSON
+            ingredientes = []
+            if ingredientes_json:
+                try:
+                    ingredientes = json.loads(ingredientes_json)
+                except Exception:
+                    pass
+            
             recetas.append(
                 Receta(
                     id_=id_receta,
                     nombre=nombre,
                     descripcion=descripcion or "",
+                    ingredientes=ingredientes,
                     pasos=pasos,
                     origen=origen,
                 )
@@ -297,7 +321,7 @@ def cargar_recetas_base() -> List[Receta]:
     """
     return _cargar_recetas_generico(
         tabla_recetas="recetas_base",
-        tabla_pasosp="pasos_receta_base",
+        tabla_pasos="pasos_receta_base",
         tabla_procesos="procesos_base",
         origen="base",
     )
@@ -310,7 +334,7 @@ def cargar_recetas_usuario() -> List[Receta]:
     """
     return _cargar_recetas_generico(
         tabla_recetas="recetas_usuario",
-        tabla_pasosp="pasos_receta_usuario",
+        tabla_pasos="pasos_receta_usuario",
         tabla_procesos="procesos_usuario",
         origen="usuario",
     )
@@ -319,6 +343,7 @@ def cargar_recetas_usuario() -> List[Receta]:
 def crear_receta_usuario(
     nombre: str,
     descripcion: str,
+    ingredientes: List[Dict[str, Any]],
     pasos: List[Tuple[int, int]],
 ) -> Receta:
     """
@@ -327,6 +352,7 @@ def crear_receta_usuario(
     Parámetros:
         nombre: nombre de la receta
         descripcion: texto descriptivo
+        ingredientes: lista de dicts con {nombre, cantidad, unidad, nota}
         pasos: lista de tuplas (orden, id_proceso_usuario)
                por ejemplo: [(1, 3), (2, 5), (3, 7)]
 
@@ -337,13 +363,16 @@ def crear_receta_usuario(
     try:
         cur = conn.cursor()
 
+        # Convertir ingredientes a JSON
+        ingredientes_json = json.dumps(ingredientes, ensure_ascii=False)
+
         # Insertar la receta
         cur.execute(
             """
-            INSERT INTO recetas_usuario (nombre, descripcion)
-            VALUES (?, ?);
+            INSERT INTO recetas_usuario (nombre, descripcion, ingredientes)
+            VALUES (?, ?, ?);
             """,
-            (nombre, descripcion),
+            (nombre, descripcion, ingredientes_json),
         )
         id_receta = cur.lastrowid
 
@@ -362,7 +391,7 @@ def crear_receta_usuario(
         # Cargar la receta recién creada con sus pasos
         cur.execute(
             """
-            SELECT id, nombre, descripcion
+            SELECT id, nombre, descripcion, ingredientes
             FROM recetas_usuario
             WHERE id = ?;
             """,
@@ -379,6 +408,8 @@ def crear_receta_usuario(
                    pr.id,
                    pr.nombre,
                    pr.tipo,
+                   pr.tipo_ejecucion,
+                   pr.instrucciones,
                    pr.temperatura,
                    pr.tiempo_segundos,
                    pr.velocidad
@@ -393,11 +424,14 @@ def crear_receta_usuario(
         filas_pasos = cur.fetchall()
 
         pasos_obj: List[PasoReceta] = []
-        for orden, pid, pnombre, ptipo, ptemp, ptiempo, pvel in filas_pasos:
+        for fila in filas_pasos:
+            orden, pid, pnombre, ptipo, ptipo_ej, pinstr, ptemp, ptiempo, pvel = fila
             proceso = ProcesoCocina(
                 id_=pid,
                 nombre=pnombre,
                 tipo=ptipo,
+                tipo_ejecucion=ptipo_ej,
+                instrucciones=pinstr,
                 temperatura=ptemp,
                 tiempo_segundos=ptiempo,
                 velocidad=pvel,
@@ -405,10 +439,19 @@ def crear_receta_usuario(
             )
             pasos_obj.append(PasoReceta(orden=orden, proceso=proceso))
 
+        # Parsear ingredientes
+        ingredientes_parsed = []
+        if fila_receta[3]:
+            try:
+                ingredientes_parsed = json.loads(fila_receta[3])
+            except Exception:
+                pass
+
         return Receta(
             id_=id_receta,
             nombre=fila_receta[1],
             descripcion=fila_receta[2] or "",
+            ingredientes=ingredientes_parsed,
             pasos=pasos_obj,
             origen="usuario",
         )
