@@ -724,16 +724,16 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
         with ui.column().classes('p-6 max-w-7xl mx-auto gap-6'):
 
-            with ui.card().classes('shadow-xl'):
-                with ui.column().classes('p-6 gap-4'):
+            with ui.card().classes('w-full shadow-xl'):
+                with ui.column().classes('w-full p-6 gap-4'):
                     with ui.row().classes('items-center gap-2'):
                         ui.icon('factory', size='lg').classes('text-indigo-600')
                         ui.label('Recetas de Fábrica').classes('text-2xl font-bold')
 
                     recetas_base_grid = ui.row().classes('w-full gap-4 flex-wrap')
 
-            with ui.card().classes('shadow-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900'):
-                with ui.column().classes('p-6 gap-4'):
+            with ui.card().classes('w-full shadow-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900'):
+                with ui.column().classes('w-full p-6 gap-4'):
                     with ui.row().classes('items-center gap-2'):
                         ui.icon('add_box', size='lg').classes('text-blue-600')
                         ui.label('Crear Nueva Receta').classes('text-2xl font-bold')
@@ -759,9 +759,39 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             {'name': 'c', 'label': 'Cantidad', 'field': 'c'},
                             {'name': 'u', 'label': 'Unidad', 'field': 'u'},
                             {'name': 'nt', 'label': 'Nota', 'field': 'nt'},
+                            {'name': 'acciones', 'label': 'Acciones', 'field': 'acciones'},
                         ],
                         rows=[]
                     ).props('flat dense').classes('w-full')
+
+                    def actualizar_tabla_ings():
+                        tabla_ings.rows = [
+                            {
+                                'n': i['nombre'],
+                                'c': i['cantidad'],
+                                'u': i['unidad'],
+                                'nt': i['nota'],
+                                'idx': idx  # <-- Muy importante para el botón de eliminar
+                            }
+                            for idx, i in enumerate(ingredientes_temp)
+                        ]
+                        tabla_ings.update()
+
+                    def eliminar_ing(idx):
+                        if 0 <= idx < len(ingredientes_temp):
+                            ingredientes_temp.pop(idx)
+                            actualizar_tabla_ings()
+                            ui.notify('Ingrediente eliminado', type='info')
+
+                    tabla_ings.add_slot('body-cell-acciones', r'''
+                        <q-td :props="props">
+                            <q-btn flat dense round icon="delete" color="red" size="sm"
+                                    @click="$parent.$emit('eliminar', props.row.idx)">
+                                <q-tooltip>Eliminar</q-tooltip>
+                            </q-btn>
+                        </q-td>
+                    ''')
+                    tabla_ings.on('eliminar', lambda e: eliminar_ing(e.args))
 
                     def anadir_ing():
                         if not ing_nombre.value:
@@ -773,8 +803,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             'unidad': ing_unidad.value or '',
                             'nota': ing_nota.value or ''
                         })
-                        tabla_ings.rows = [{'n': i['nombre'], 'c': i['cantidad'], 'u': i['unidad'], 'nt': i['nota']} for i in ingredientes_temp]
-                        tabla_ings.update()
+                        actualizar_tabla_ings()  # <-- Usamos la función que asigna idx correctamente
+                        # Limpiar inputs
                         ing_nombre.value = ''
                         ing_cant.value = 1
                         ing_unidad.value = ''
@@ -795,9 +825,40 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             {'name': 'ord', 'label': '#', 'field': 'ord'},
                             {'name': 'nom', 'label': 'Proceso', 'field': 'nom'},
                             {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo'},
+                            {'name': 'acciones', 'label': 'Acciones', 'field': 'acciones'},
                         ],
                         rows=[]
                     ).props('flat dense').classes('w-full')
+
+                    def actualizar_tabla_pasos():
+                        tabla_pasos.rows = [
+                            {
+                                'ord': idx + 1,
+                                'nom': p.nombre,
+                                'tipo': 'Manual' if p.es_manual() else 'Automático',
+                                'idx': idx  # <-- Necesario para el botón de eliminar
+                            }
+                            for idx, (_, p) in enumerate(pasos_temp)
+                        ]
+                        tabla_pasos.update()
+
+                    def eliminar_paso(idx):
+                        if 0 <= idx < len(pasos_temp):
+                            pasos_temp.pop(idx)
+                            # Reajustar el orden de los pasos restantes
+                            pasos_temp[:] = [(i+1, p) for i, (_, p) in enumerate(pasos_temp)]
+                            actualizar_tabla_pasos()
+                            ui.notify('Paso eliminado', type='info')
+
+                    tabla_pasos.add_slot('body-cell-acciones', r'''
+                        <q-td :props="props">
+                            <q-btn flat dense round icon="delete" color="red" size="sm"
+                                    @click="$parent.$emit('eliminar', props.row.idx)">
+                                <q-tooltip>Eliminar</q-tooltip>
+                            </q-btn>
+                        </q-td>
+                    ''')
+                    tabla_pasos.on('eliminar', lambda e: eliminar_paso(e.args))
 
                     def anadir_paso():
                         if not select_proc.value:
@@ -806,8 +867,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         proc = procesos_map.get(select_proc.value)
                         if proc:
                             pasos_temp.append((len(pasos_temp) + 1, proc))
-                            tabla_pasos.rows = [{'ord': idx+1, 'nom': p.nombre, 'tipo': 'Manual' if p.es_manual() else 'Automático'} for idx, (_, p) in enumerate(pasos_temp)]
-                            tabla_pasos.update()
+                            actualizar_tabla_pasos()  # <-- Usamos la función que asigna idx
 
                     def crear_receta():
                         nombre = (input_nombre_receta.value or '').strip()
@@ -866,8 +926,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         'unelevated color=blue size=lg icon=save'
                     ).classes('w-full mt-4')
 
-            with ui.card().classes('shadow-xl'):
-                with ui.column().classes('p-6 gap-4'):
+            with ui.card().classes('w-full shadow-xl'):
+                with ui.column().classes('w-full p-6 gap-4'):
                     with ui.row().classes('items-center gap-2'):
                         ui.icon('menu_book', size='lg').classes('text-indigo-600')
                         ui.label('Mis Recetas').classes('text-2xl font-bold')
