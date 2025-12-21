@@ -72,7 +72,7 @@ def _crear_navegacion(robot: RobotCocina, refrescar_callback=None):
                     THEME_STATE['dark'] = e.value
                     ui.dark_mode().value = e.value
 
-                ui.switch(value=THEME_STATE['dark'], on_change=cambiar_tema).props('dense color=indigo')
+                ui.switch(value=THEME_STATE['dark'], on_change=cambiar_tema).props('dense color=indigo').tooltip('Modo Claro / Oscuro')
                 ui.icon('dark_mode').classes('text-black-600')
 
             ui.separator().classes('my-4')
@@ -750,7 +750,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
             with ui.card().classes('w-full shadow-xl'):
                 with ui.column().classes('w-full p-6 gap-4'):
                     with ui.row().classes('items-center justify-between'):
-                        ui.icon('precision_manufacturing', size='lg').classes('text-purple-600')
+                        ui.icon('precision_manufacturing', size='lg').classes('text-indigo-600')
                         ui.label('Mis Procesos').classes('text-2xl font-bold')
                         
                     ui.label('Procesos creados por ti. Haz clic en una fila para ver detalles.').classes('text-gray-600 dark:text-gray-400')
@@ -854,10 +854,10 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                     with ui.row().classes('w-full gap-2 items-end'):
                         ing_nombre = ui.input('Ingrediente').props('outlined dense').classes('flex-1')
-                        ing_cant = ui.number('Cantidad', value=1, min=1).props('outlined dense').classes('w-24')
+                        ing_cant = ui.number('Cantidad', min=1).props('outlined dense').classes('w-24')
                         ing_unidad = ui.input('Unidad').props('outlined dense').classes('w-32')
                         ing_nota = ui.input('Nota (opcional)').props('outlined dense').classes('flex-1')
-                        ui.button(icon='add', on_click=lambda: anadir_ing()).props('fab-mini color=green')
+                        ui.button(icon='add', on_click=lambda: anadir_ing()).props('fab-mini color=green').tooltip('Añadir')
 
                     tabla_ings = ui.table(
                         columns=[
@@ -912,7 +912,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         actualizar_tabla_ings()  # <-- Usamos la función que asigna idx correctamente
                         # Limpiar inputs
                         ing_nombre.value = ''
-                        ing_cant.value = 1
+                        ing_cant.value = None
                         ing_unidad.value = ''
                         ing_nota.value = ''
 
@@ -924,7 +924,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                     with ui.row().classes('w-full gap-2 items-end'):
                         select_proc = ui.select([], label='Seleccionar proceso...').props('outlined dense').classes('flex-1')
-                        ui.button(icon='add', on_click=lambda: anadir_paso()).props('fab-mini color=green')
+                        ui.button(icon='add', on_click=lambda: anadir_paso()).props('fab-mini color=green').tooltip('Añadir')
 
                     tabla_pasos = ui.table(
                         columns=[
