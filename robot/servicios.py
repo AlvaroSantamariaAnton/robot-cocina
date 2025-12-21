@@ -245,45 +245,88 @@ def _cargar_recetas_generico(
         ids_recetas = [r[0] for r in filas_recetas]
         marcadores = ",".join("?" for _ in ids_recetas)
 
-        cur.execute(
-            f"""
-            SELECT p.id_receta,
-                   p.orden,
-                   pr.id,
-                   pr.nombre,
-                   pr.tipo,
-                   pr.tipo_ejecucion,
-                   pr.instrucciones,
-                   pr.temperatura,
-                   pr.tiempo_segundos,
-                   pr.velocidad
-            FROM {tabla_pasos} AS p
-            JOIN {tabla_procesos} AS pr
-                ON p.id_proceso = pr.id
-            WHERE p.id_receta IN ({marcadores})
-            ORDER BY p.id_receta, p.orden;
-            """,
-            ids_recetas,
-        )
-        filas_pasos = cur.fetchall()
-
-        # Agrupar por id_receta
-        pasos_por_receta: Dict[int, List[PasoReceta]] = {}
-        for fila in filas_pasos:
-            id_receta, orden, pid, pnombre, ptipo, ptipo_ej, pinstr, ptemp, ptiempo, pvel = fila
-            proceso = ProcesoCocina(
-                id_=pid,
-                nombre=pnombre,
-                tipo=ptipo,
-                tipo_ejecucion=ptipo_ej,
-                instrucciones=pinstr,
-                temperatura=ptemp,
-                tiempo_segundos=ptiempo,
-                velocidad=pvel,
-                origen=origen,
+        # Si son recetas de usuario, buscar en ambas tablas de procesos
+        if tabla_pasos == "pasos_receta_usuario":
+            cur.execute(
+                f"""
+                SELECT p.id_receta,
+                       p.orden,
+                       COALESCE(pr_user.id, pr_base.id) as id,
+                       COALESCE(pr_user.nombre, pr_base.nombre) as nombre,
+                       COALESCE(pr_user.tipo, pr_base.tipo) as tipo,
+                       COALESCE(pr_user.tipo_ejecucion, pr_base.tipo_ejecucion) as tipo_ejecucion,
+                       COALESCE(pr_user.instrucciones, pr_base.instrucciones) as instrucciones,
+                       COALESCE(pr_user.temperatura, pr_base.temperatura) as temperatura,
+                       COALESCE(pr_user.tiempo_segundos, pr_base.tiempo_segundos) as tiempo_segundos,
+                       COALESCE(pr_user.velocidad, pr_base.velocidad) as velocidad,
+                       CASE WHEN pr_user.id IS NOT NULL THEN 'usuario' ELSE 'base' END as origen
+                FROM {tabla_pasos} AS p
+                LEFT JOIN procesos_usuario AS pr_user
+                    ON p.id_proceso = pr_user.id
+                LEFT JOIN procesos_base AS pr_base
+                    ON p.id_proceso = pr_base.id
+                WHERE p.id_receta IN ({marcadores})
+                ORDER BY p.id_receta, p.orden;
+                """,
+                ids_recetas,
             )
-            paso = PasoReceta(orden=orden, proceso=proceso)
-            pasos_por_receta.setdefault(id_receta, []).append(paso)
+            filas_pasos = cur.fetchall()
+            # Procesar con origen dinámico
+            pasos_por_receta: Dict[int, List[PasoReceta]] = {}
+            for fila in filas_pasos:
+                id_receta, orden, pid, pnombre, ptipo, ptipo_ej, pinstr, ptemp, ptiempo, pvel, origen_proc = fila
+                proceso = ProcesoCocina(
+                    id_=pid,
+                    nombre=pnombre,
+                    tipo=ptipo,
+                    tipo_ejecucion=ptipo_ej,
+                    instrucciones=pinstr,
+                    temperatura=ptemp,
+                    tiempo_segundos=ptiempo,
+                    velocidad=pvel,
+                    origen=origen_proc,
+                )
+                paso = PasoReceta(orden=orden, proceso=proceso)
+                pasos_por_receta.setdefault(id_receta, []).append(paso)
+        else:
+            # Recetas de base: solo buscar en procesos_base
+            cur.execute(
+                f"""
+                SELECT p.id_receta,
+                       p.orden,
+                       pr.id,
+                       pr.nombre,
+                       pr.tipo,
+                       pr.tipo_ejecucion,
+                       pr.instrucciones,
+                       pr.temperatura,
+                       pr.tiempo_segundos,
+                       pr.velocidad
+                FROM {tabla_pasos} AS p
+                JOIN {tabla_procesos} AS pr
+                    ON p.id_proceso = pr.id
+                WHERE p.id_receta IN ({marcadores})
+                ORDER BY p.id_receta, p.orden;
+                """,
+                ids_recetas,
+            )
+            filas_pasos = cur.fetchall()
+            pasos_por_receta: Dict[int, List[PasoReceta]] = {}
+            for fila in filas_pasos:
+                id_receta, orden, pid, pnombre, ptipo, ptipo_ej, pinstr, ptemp, ptiempo, pvel = fila
+                proceso = ProcesoCocina(
+                    id_=pid,
+                    nombre=pnombre,
+                    tipo=ptipo,
+                    tipo_ejecucion=ptipo_ej,
+                    instrucciones=pinstr,
+                    temperatura=ptemp,
+                    tiempo_segundos=ptiempo,
+                    velocidad=pvel,
+                    origen=origen,
+                )
+                paso = PasoReceta(orden=orden, proceso=proceso)
+                pasos_por_receta.setdefault(id_receta, []).append(paso)
 
         # 3) Construir objetos Receta
         recetas: List[Receta] = []
@@ -401,21 +444,24 @@ def crear_receta_usuario(
         if fila_receta is None:
             raise RuntimeError("No se pudo recuperar la receta recién creada.")
 
-        # Cargar pasos + procesos
+        # Cargar pasos + procesos (buscar tanto en base como en usuario)
         cur.execute(
             """
             SELECT p.orden,
-                   pr.id,
-                   pr.nombre,
-                   pr.tipo,
-                   pr.tipo_ejecucion,
-                   pr.instrucciones,
-                   pr.temperatura,
-                   pr.tiempo_segundos,
-                   pr.velocidad
+                   COALESCE(pr_user.id, pr_base.id) as id,
+                   COALESCE(pr_user.nombre, pr_base.nombre) as nombre,
+                   COALESCE(pr_user.tipo, pr_base.tipo) as tipo,
+                   COALESCE(pr_user.tipo_ejecucion, pr_base.tipo_ejecucion) as tipo_ejecucion,
+                   COALESCE(pr_user.instrucciones, pr_base.instrucciones) as instrucciones,
+                   COALESCE(pr_user.temperatura, pr_base.temperatura) as temperatura,
+                   COALESCE(pr_user.tiempo_segundos, pr_base.tiempo_segundos) as tiempo_segundos,
+                   COALESCE(pr_user.velocidad, pr_base.velocidad) as velocidad,
+                   CASE WHEN pr_user.id IS NOT NULL THEN 'usuario' ELSE 'base' END as origen
             FROM pasos_receta_usuario AS p
-            JOIN procesos_usuario AS pr
-                ON p.id_proceso = pr.id
+            LEFT JOIN procesos_usuario AS pr_user
+                ON p.id_proceso = pr_user.id
+            LEFT JOIN procesos_base AS pr_base
+                ON p.id_proceso = pr_base.id
             WHERE p.id_receta = ?
             ORDER BY p.orden;
             """,
@@ -425,7 +471,7 @@ def crear_receta_usuario(
 
         pasos_obj: List[PasoReceta] = []
         for fila in filas_pasos:
-            orden, pid, pnombre, ptipo, ptipo_ej, pinstr, ptemp, ptiempo, pvel = fila
+            orden, pid, pnombre, ptipo, ptipo_ej, pinstr, ptemp, ptiempo, pvel, origen = fila
             proceso = ProcesoCocina(
                 id_=pid,
                 nombre=pnombre,
@@ -435,7 +481,7 @@ def crear_receta_usuario(
                 temperatura=ptemp,
                 tiempo_segundos=ptiempo,
                 velocidad=pvel,
-                origen="usuario",
+                origen=origen,
             )
             pasos_obj.append(PasoReceta(orden=orden, proceso=proceso))
 

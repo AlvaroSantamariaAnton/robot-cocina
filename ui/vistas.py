@@ -583,9 +583,9 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         
                         # Badge de tipo de ejecución
                         if proceso.es_manual():
-                            ui.badge('MANUAL', color='purple').props('outline')
+                            ui.badge('MANUAL', color='indigo').props('outline')
                         else:
-                            ui.badge('AUTOMÁTICO', color='green').props('outline')
+                            ui.badge('AUTOMÁTICO', color='indigo').props('outline')
                         
                         ui.separator()
                         
@@ -624,7 +624,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.separator()
                             ui.label('Instrucciones:').classes('text-lg font-bold')
                             ui.label(proceso.instrucciones).classes(
-                                'text-gray-700 dark:text-gray-300 ml-4 p-3 bg-purple-50 dark:bg-gray-700 '
+                                'text-gray-700 dark:text-gray-300 ml-4 p-3 bg-indigo-50 dark:bg-gray-700 '
                                 'rounded-lg whitespace-normal break-words'
                             )
                         
@@ -979,8 +979,13 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         nombre = (input_nombre_receta.value or '').strip()
                         desc = (input_desc_receta.value or '').strip()
 
-                        if not nombre or not pasos_temp:
-                            ui.notify('Nombre y pasos obligatorios', type='negative')
+                        # Validaciones robustas
+                        if not nombre:
+                            ui.notify('El nombre es obligatorio', type='negative')
+                            return
+                        
+                        if not pasos_temp or len(pasos_temp) == 0:
+                            ui.notify('Debes añadir al menos un paso a la receta', type='negative')
                             return
 
                         try:
@@ -988,6 +993,11 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             for orden, proc in pasos_temp:
                                 # Usar directamente el ID del proceso, sea de base o de usuario
                                 pasos_guardar.append((orden, proc.id))
+                            
+                            # Verificación final antes de guardar
+                            if len(pasos_guardar) == 0:
+                                ui.notify('Error: No se pudieron procesar los pasos', type='negative')
+                                return
 
                             servicios.crear_receta_usuario(
                                 nombre=nombre,
@@ -996,7 +1006,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 pasos=pasos_guardar
                             )
 
-                            ui.notify('Receta creada', type='positive')
+                            ui.notify('Receta creada correctamente', type='positive')
                             input_nombre_receta.value = ''
                             input_desc_receta.value = ''
                             ingredientes_temp.clear()
@@ -1007,7 +1017,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             tabla_pasos.update()
                             refrescar_recetas()
                         except Exception as ex:
-                            ui.notify(f'Error: {ex}', type='negative')
+                            ui.notify(f'Error al guardar: {ex}', type='negative')
 
                     ui.button('GUARDAR RECETA', on_click=crear_receta).props(
                         'unelevated color=blue size=lg icon=save'
