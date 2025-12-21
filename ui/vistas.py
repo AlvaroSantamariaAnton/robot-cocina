@@ -32,7 +32,7 @@ def _card_classes(extra: str = '') -> str:
     return f'{CARD_BASE} {CARD_MIN_H} {extra}'.strip()
 
 
-def _crear_navegacion():
+def _crear_navegacion(robot: RobotCocina, refrescar_callback=None):
     """Drawer lateral de navegación moderna."""
     with ui.left_drawer(fixed=True, bordered=True).classes(
         'bg-gradient-to-b from-indigo-50 to-white dark:from-gray-900 dark:to-gray-800 overflow-y-auto'
@@ -73,18 +73,46 @@ def _crear_navegacion():
                     ui.dark_mode().value = e.value
 
                 ui.switch(value=THEME_STATE['dark'], on_change=cambiar_tema).props('dense color=indigo')
-                ui.icon('dark_mode').classes('text-indigo-600')
+                ui.icon('dark_mode').classes('text-black-600')
 
             ui.separator().classes('my-4')
 
-            # Zona de Peligro en el drawer
-            peligro_expansion = ui.expansion('Ajustes', icon='settings').classes(
+            # Zona de Ajustes en el drawer
+            with ui.expansion('Ajustes', icon='settings').classes(
                 'w-full rounded-xl bg-white dark:bg-gray-800 shadow-sm'
-            )
+            ) as peligro_expansion:
+                peligro_expansion.set_value(False)
+                
+                with ui.column().classes('p-4 gap-3'):
+                    ui.label('Reinicia el robot a la configuración de fábrica').classes(
+                        'text-sm text-gray-600 dark:text-gray-400 mb-3'
+                    )
 
-            peligro_expansion.set_value(False)
+                    def hacer_reinicio():
+                        servicios.reinicio_de_fabrica()
+                        robot.apagar()
+                        if refrescar_callback:
+                            refrescar_callback()
+                        ui.notify('Reinicio de fábrica completado.', type='positive')
 
-    return drawer, peligro_expansion
+                    with ui.dialog() as dialog_reset:
+                        with ui.card().classes('p-6'):
+                            ui.label('¿Confirmar reinicio de fábrica?').classes('text-xl font-bold mb-4')
+                            ui.label('Esta acción eliminará todas las recetas y procesos de usuario.').classes(
+                                'text-red-600 mb-4'
+                            )
+                            with ui.row().classes('gap-2'):
+                                ui.button('Cancelar', on_click=dialog_reset.close).props('flat')
+                                ui.button(
+                                    'Sí, resetear',
+                                    on_click=lambda: [dialog_reset.close(), hacer_reinicio()]
+                                ).props('unelevated color=red')
+
+                    ui.button('Reinicio de Fábrica', on_click=dialog_reset.open).props(
+                        'outline color=orange icon=restart_alt'
+                    ).classes('w-full')
+
+    return drawer
 
 
 def registrar_vistas(robot: RobotCocina) -> None:
@@ -123,7 +151,20 @@ def registrar_vistas(robot: RobotCocina) -> None:
     @ui.page('/')
     def pagina_dashboard() -> None:
         ui.page_title('Dashboard - Robot de Cocina')
-        drawer, peligro_expansion = _crear_navegacion()
+        
+        # Función de refresco completo para el dashboard
+        def refrescar_dashboard_completo():
+            refrescar_recetas()
+            switch_encendido.value = False
+            ESTADO_BARRA['completada'] = False
+            receta_label.text = "(ninguna)"
+            ingredientes_expansion.set_visibility(False)
+            barra_progreso.value = 0.0
+            progreso_label.text = "0%"
+            paso_card.set_visibility(False)
+            boton_confirmar.set_visibility(False)
+        
+        drawer = _crear_navegacion(robot, refrescar_dashboard_completo)
 
         # Header
         with ui.header().classes('bg-white dark:bg-gray-900 shadow-sm'):
@@ -144,7 +185,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
             def on_cambio_modo(e):
                 modo['valor'] = e.value
-                ui.notify(f'Modo seleccionado: {modo['valor']}', type='info')
+                ui.notify(f'Modo seleccionado: {modo["valor"]}', type='info')
 
             # ============ FILA 1: MÉTRICAS PRINCIPALES ============
             with ui.element('div').classes('grid grid-cols-1 md:grid-cols-3 gap-4 w-full'):
@@ -355,43 +396,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 boton_confirmar.set_visibility(False)
                 paso_card.set_visibility(False)
 
-            # ============ CONTENIDO DE ZONA DE AJUSTES EN EL DRAWER ============
-            with peligro_expansion:
-                with ui.column().classes('p-4 gap-3'):
-                    ui.label('Reinicia el robot a configuración de fábrica').classes(
-                        'text-sm text-gray-600 dark:text-gray-400 mb-3'
-                    )
-
-                    def hacer_reinicio():
-                        servicios.reinicio_de_fabrica()
-                        refrescar_recetas()
-                        switch_encendido.value = False
-                        ESTADO_BARRA['completada'] = False
-                        receta_label.text = "(ninguna)"
-                        ingredientes_expansion.set_visibility(False)
-                        barra_progreso.value = 0.0
-                        progreso_label.text = "0%"
-                        paso_card.set_visibility(False)
-                        boton_confirmar.set_visibility(False)
-                        ui.notify('Reinicio completado', type='positive')
-
-                    with ui.dialog() as dialog_reset:
-                        with ui.card().classes('p-6'):
-                            ui.label('¿Confirmar reinicio de fábrica?').classes('text-xl font-bold mb-4')
-                            ui.label('Esta acción eliminará todas las recetas y procesos de usuario.').classes(
-                                'text-red-600 mb-4'
-                            )
-                            with ui.row().classes('gap-2'):
-                                ui.button('Cancelar', on_click=dialog_reset.close).props('flat')
-                                ui.button(
-                                    'Sí, resetear',
-                                    on_click=lambda: [dialog_reset.close(), hacer_reinicio()]
-                                ).props('unelevated color=red')
-
-                    ui.button('Reinicio de Fábrica', on_click=dialog_reset.open).props(
-                        'outline color=orange icon=restart_alt'
-                    ).classes('w-full')
-
             # ============ FUNCIONES DE ACTUALIZACIÓN ============
 
             def refrescar_recetas():
@@ -556,7 +560,12 @@ def registrar_vistas(robot: RobotCocina) -> None:
     @ui.page('/procesos')
     def pagina_procesos() -> None:
         ui.page_title('Procesos - Robot de Cocina')
-        drawer, _ = _crear_navegacion()
+        
+        # Función de refresco para procesos
+        def refrescar_procesos_completo():
+            refrescar_procesos()
+        
+        drawer = _crear_navegacion(robot, refrescar_procesos_completo)
 
         with ui.header().classes('bg-white dark:bg-gray-900 shadow-sm'):
             with ui.row().classes('w-full items-center gap-3 px-6 py-3'):
@@ -715,7 +724,12 @@ def registrar_vistas(robot: RobotCocina) -> None:
     @ui.page('/recetas')
     def pagina_recetas() -> None:
         ui.page_title('Recetas - Robot de Cocina')
-        drawer, _ = _crear_navegacion()
+        
+        # Función de refresco para recetas
+        def refrescar_recetas_completo():
+            refrescar_recetas()
+        
+        drawer = _crear_navegacion(robot, refrescar_recetas_completo)
 
         with ui.header().classes('bg-white dark:bg-gray-900 shadow-sm'):
             with ui.row().classes('w-full items-center gap-3 px-6 py-3'):
