@@ -131,75 +131,75 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
         # ===== PROCESOS MANUALES =====
         
         # --- Preparación inicial ---
-        ("Añadir ingredientes secos", "preparacion", "manual", 
+        ("Añadir ingredientes secos", "Preparación", "manual", 
          "Añadir al vaso todos los ingredientes secos indicados en la receta (harina, azúcar, sal, especias, etc.)", 
          0, 0, 0),
         
-        ("Añadir ingredientes líquidos", "preparacion", "manual",
+        ("Añadir ingredientes líquidos", "Preparación", "manual",
          "Añadir al vaso todos los líquidos indicados (agua, leche, aceite, caldo, etc.)",
          0, 0, 0),
         
-        ("Añadir verduras preparadas", "preparacion", "manual",
+        ("Añadir verduras preparadas", "Preparación", "manual",
          "Incorporar las verduras ya peladas y cortadas según indicaciones de la receta",
          0, 0, 0),
         
-        ("Añadir proteína", "preparacion", "manual",
+        ("Añadir proteína", "Preparación", "manual",
          "Incorporar la carne, pescado o proteína vegetal indicada, previamente limpia y troceada",
          0, 0, 0),
         
-        ("Añadir lácteos", "preparacion", "manual",
+        ("Añadir lácteos", "Preparación", "manual",
          "Añadir los productos lácteos necesarios (leche, nata, queso, mantequilla, etc.)",
          0, 0, 0),
         
-        ("Añadir aromáticos", "preparacion", "manual",
+        ("Añadir aromáticos", "Preparación", "manual",
          "Incorporar hierbas aromáticas, ajo, cebolla u otros elementos que den sabor base",
          0, 0, 0),
         
         # --- Verificación y control ---
-        ("Verificar punto de cocción", "verificacion", "manual",
+        ("Verificar punto de cocción", "Verificación", "manual",
          "Probar el alimento y verificar que está en su punto. Ajustar sal y especias si es necesario",
          0, 0, 0),
         
-        ("Verificar textura", "verificacion", "manual",
+        ("Verificar textura", "Verificación", "manual",
          "Comprobar que la textura es la deseada. Si es necesario, continuar procesando",
          0, 0, 0),
         
-        ("Retirar líquido de cocción", "manipulacion", "manual",
+        ("Retirar líquido de cocción", "Manipulación", "manual",
          "Con cuidado de no quemarse, retirar el líquido sobrante usando el vaso medidor o escurriendo",
          0, 0, 0),
         
-        ("Añadir ingredientes finales", "preparacion", "manual",
+        ("Añadir ingredientes finales", "Preparación", "manual",
          "Incorporar los ingredientes que se añaden al final (hierbas frescas, aceite en crudo, etc.)",
          0, 0, 0),
         
-        ("Transferir a recipiente", "manipulacion", "manual",
+        ("Transferir a recipiente", "Manipulación", "manual",
          "Verter el contenido del vaso al recipiente de servir indicado",
          0, 0, 0),
         
-        ("Reservar porción", "manipulacion", "manual",
+        ("Reservar porción", "Manipulación", "manual",
          "Sacar y reservar aparte la cantidad indicada de la preparación para uso posterior",
          0, 0, 0),
         
         # ===== PROCESOS AUTOMÁTICOS =====
         
         # --- Picado y triturado (frío) ---
-        ("Picar verduras finamente", "manipulacion", "automatico",
+        ("Picar verduras finamente", "Manipulación", "automatico",
          "Proceso automático de picado fino",
          0, 15, 5),
         
-        ("Picar verduras groseramente", "manipulacion", "automatico",
+        ("Picar verduras groseramente", "Manipulación", "automatico",
          "Proceso automático de picado grueso",
          0, 10, 4),
         
-        ("Picar carne", "manipulacion", "automatico",
+        ("Picar carne", "Manipulación", "automatico",
          "Proceso automático de picado de carne",
          0, 20, 5),
         
-        ("Rallar queso", "manipulacion", "automatico",
+        ("Rallar queso", "Manipulación", "automatico",
          "Proceso automático de rallado",
          0, 20, 5),
         
-        ("Triturar grueso", "manipulacion", "automatico",
+        ("Triturar grueso", "Manipulación", "automatico",
          "Proceso automático de triturado grueso (trozos visibles)",
          0, 25, 6),
         
@@ -211,11 +211,11 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
          "Proceso automático de pulverización (polvo fino)",
          0, 45, 10),
         
-        ("Picar frutos secos", "manipulacion", "automatico",
+        ("Picar frutos secos", "Manipulación", "automatico",
          "Proceso automático de picado de frutos secos",
          0, 15, 4),
         
-        ("Moler especias", "manipulacion", "automatico",
+        ("Moler especias", "Manipulación", "automatico",
          "Proceso automático de molido de especias",
          0, 30, 10),
         
@@ -245,53 +245,53 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
          0, 90, 3),
         
         # --- Cocción con temperatura baja-media ---
-        ("Calentar suave", "coccion", "automatico",
+        ("Calentar suave", "Cocción", "automatico",
          "Proceso automático de calentamiento suave",
          60, 120, 1),
         
-        ("Templar", "coccion", "automatico",
+        ("Templar", "Cocción", "automatico",
          "Proceso automático para templar mezclas",
          50, 180, 2),
         
-        ("Sofreír suave", "coccion", "automatico",
+        ("Sofreír suave", "Cocción", "automatico",
          "Proceso automático de sofrito suave",
          100, 240, 1),
         
-        ("Sofreír intenso", "coccion", "automatico",
+        ("Sofreír intenso", "Cocción", "automatico",
          "Proceso automático de sofrito intenso",
          120, 180, 2),
         
-        ("Pochar", "coccion", "automatico",
+        ("Pochar", "Cocción", "automatico",
          "Proceso automático de pochado",
          90, 300, 1),
         
         # --- Cocción con temperatura alta ---
-        ("Hervir suave", "coccion", "automatico",
+        ("Hervir suave", "Cocción", "automatico",
          "Proceso automático de hervido suave",
          100, 420, 1),
         
-        ("Hervir", "coccion", "automatico",
+        ("Hervir", "Cocción", "automatico",
          "Proceso automático de hervido",
          100, 600, 1),
         
-        ("Cocción al vapor", "coccion", "automatico",
+        ("Cocción al vapor", "Cocción", "automatico",
          "Proceso automático de cocción al vapor",
          100, 900, 0),
         
-        ("Reducir líquido", "coccion", "automatico",
+        ("Reducir líquido", "Cocción", "automatico",
          "Proceso automático de reducción",
          100, 480, 2),
         
-        ("Cocer a fuego lento", "coccion", "automatico",
+        ("Cocer a fuego lento", "Cocción", "automatico",
          "Proceso automático de cocción lenta",
          95, 1200, 1),
         
-        # --- Cocciones especiales ---
-        ("Confitar", "coccion", "automatico",
+        # --- Cocciónes especiales ---
+        ("Confitar", "Cocción", "automatico",
          "Proceso automático de confitado",
          80, 1800, 0),
         
-        ("Cocción lenta prolongada", "coccion", "automatico",
+        ("Cocción lenta prolongada", "Cocción", "automatico",
          "Proceso automático de cocción muy lenta",
          90, 3600, 0),
         
@@ -313,19 +313,19 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
          80, 120, 4),
         
         # --- Repostería ---
-        ("Mezclar masa pastelera", "reposteria", "automatico",
+        ("Mezclar masa pastelera", "Repostería", "automatico",
          "Proceso automático de mezclado para masas de pastelería",
          0, 60, 3),
         
-        ("Fundir chocolate", "reposteria", "automatico",
+        ("Fundir chocolate", "Repostería", "automatico",
          "Proceso automático de fundido de chocolate",
          50, 180, 2),
         
-        ("Hacer caramelo", "reposteria", "automatico",
+        ("Hacer caramelo", "Repostería", "automatico",
          "Proceso automático de caramelización",
          110, 420, 2),
         
-        ("Templar chocolate", "reposteria", "automatico",
+        ("Templar chocolate", "Repostería", "automatico",
          "Proceso automático de templado de chocolate",
          45, 300, 2),
         

@@ -594,7 +594,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             with ui.row().classes('items-center gap-2'):
                                 ui.icon('category', size='sm').classes('text-indigo-600')
                                 ui.label('Tipo:').classes('font-semibold')
-                                ui.label(proceso.tipo).classes('text-gray-600 dark:text-gray-400')
+                                ui.label(proceso.tipo.capitalize()).classes('text-gray-600 dark:text-gray-400')
                             
                             with ui.row().classes('items-center gap-2'):
                                 ui.icon('source', size='sm').classes('text-indigo-600')
@@ -678,7 +678,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         columns=[
                             {'name': 'nombre', 'label': 'Nombre', 'field': 'nombre', 'align': 'left'},
                             {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo', 'align': 'left'},
-                            {'name': 'tipo_ej', 'label': 'Ejecución', 'field': 'tipo_ej', 'align': 'center'},
+                            {'name': 'tipo_ej', 'label': 'Tipo de Ejecución', 'field': 'tipo_ej', 'align': 'center'},
                             {'name': 'temp', 'label': 'Temp', 'field': 'temp', 'align': 'right'},
                             {'name': 'tiempo', 'label': 'Tiempo', 'field': 'tiempo', 'align': 'right'},
                             {'name': 'vel', 'label': 'Vel', 'field': 'vel', 'align': 'right'},
@@ -698,7 +698,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     with ui.grid(columns=2).classes('w-full gap-4'):
                         input_nombre = ui.input('Nombre').props('outlined dense').classes('col-span-2')
                         input_tipo = ui.input('Tipo (ej: Preparación, Cocción)').props('outlined dense')
-                        select_tipo_ej = ui.select(['Manual', 'Automático'], label='Tipo de Ejecución').props('outlined dense')
+                        select_tipo_ej = ui.select(['Manual', 'Automático'], label='Tipo de Ejecución', value=None).props('outlined dense')
                         input_instrucciones = ui.textarea('Instrucciones (obligatorio para manuales)').props('outlined').classes('col-span-2')
                         input_temp = ui.number('Temperatura (0-120ºC)', value=0, min=0, max=120).props('outlined dense')
                         input_tiempo = ui.number('Tiempo (s)', value=60, min=1).props('outlined dense')
@@ -723,12 +723,15 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.notify('Los procesos manuales requieren instrucciones', type='negative')
                             return
                         
+                        # Convertir tipo de ejecución a formato de BD
+                        tipo_ej_bd = 'manual' if tipo_ej == 'Manual' else 'automatico'
+                        
                         # Crear proceso
                         try:
                             servicios.crear_proceso_usuario(
                                 nombre=nombre,
                                 tipo=tipo,
-                                tipo_ejecucion=tipo_ej,
+                                tipo_ejecucion=tipo_ej_bd,
                                 instrucciones=instrucciones,
                                 temperatura=int(input_temp.value or 0),
                                 tiempo_segundos=int(input_tiempo.value or 0),
@@ -738,6 +741,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.notify('Proceso creado', type='positive')
                             input_nombre.value = ''
                             input_tipo.value = ''
+                            select_tipo_ej.value = None
                             input_instrucciones.value = ''
                             refrescar_procesos()
                         except Exception as ex:
@@ -760,7 +764,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         columns=[
                             {'name': 'nombre', 'label': 'Nombre', 'field': 'nombre', 'align': 'left'},
                             {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo', 'align': 'left'},
-                            {'name': 'tipo_ej', 'label': 'Ejecución', 'field': 'tipo_ej', 'align': 'center'},
+                            {'name': 'tipo_ej', 'label': 'Tipo de Ejecución', 'field': 'tipo_ej', 'align': 'center'},
                             {'name': 'temp', 'label': 'Temp', 'field': 'temp', 'align': 'right'},
                             {'name': 'tiempo', 'label': 'Tiempo', 'field': 'tiempo', 'align': 'right'},
                             {'name': 'vel', 'label': 'Vel', 'field': 'vel', 'align': 'right'},
@@ -777,7 +781,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 tabla_base.rows = [
                     {
                         'nombre': p.nombre,
-                        'tipo': p.tipo,
+                        'tipo': p.tipo.capitalize(),
                         'tipo_ej': 'Manual' if p.es_manual() else 'Automático',
                         'temp': f'{p.temperatura}º' if p.tipo_ejecucion == 'automatico' else '-',
                         'tiempo': f'{p.tiempo_segundos}s' if p.tipo_ejecucion == 'automatico' else '-',
@@ -793,7 +797,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 tabla_usuario.rows = [
                     {
                         'nombre': p.nombre,
-                        'tipo': p.tipo,
+                        'tipo': p.tipo.capitalize(),
                         'tipo_ej': 'Manual' if p.es_manual() else 'Automático',
                         'temp': f'{p.temperatura}º' if p.tipo_ejecucion == 'automatico' else '-',
                         'tiempo': f'{p.tiempo_segundos}s' if p.tipo_ejecucion == 'automatico' else '-',
