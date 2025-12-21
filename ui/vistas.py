@@ -875,10 +875,10 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     recetas_user_grid = ui.row().classes('w-full gap-4 flex-wrap')
 
             def mostrar_detalle_receta(receta):
-                with ui.dialog() as dlg, ui.card().classes('max-w-2xl'):
+                with ui.dialog() as dlg, ui.card().classes('max-w-2xl overflow-x-hidden').props('lang=es'):
                     with ui.column().classes('p-6 gap-4'):
-                        ui.label(receta.nombre).classes('text-3xl font-bold')
-                        ui.label(receta.descripcion).classes('text-gray-600')
+                        ui.label(receta.nombre).classes('text-3xl font-bold whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
+                        ui.label(receta.descripcion).classes('text-gray-600 whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
 
                         if receta.ingredientes:
                             with ui.row().classes('items-center justify-between'):
@@ -886,7 +886,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 ui.label('Ingredientes:').classes('text-xl font-bold')
                             for ing in receta.ingredientes:
                                 nota = f" ({ing['nota']})" if ing.get('nota') else ""
-                                ui.label(f"• {ing['nombre']}: {ing['cantidad']} {ing['unidad']}{nota}").classes('ml-4')
+                                ui.label(f"• {ing['nombre']}: {ing['cantidad']} {ing['unidad']}{nota}").classes('ml-4 whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
 
                         with ui.row().classes('items-center justify-between'): 
                             ui.icon('list', size='md').classes('text-blue-600')
@@ -895,9 +895,43 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             tipo_emoji = '(Manual)' if paso.proceso.es_manual() else '(Automático)'
                             ui.label(f"{paso.orden}. {tipo_emoji} {paso.proceso.nombre}").classes('ml-4 font-medium')
                             if paso.proceso.es_manual():
-                                ui.label(paso.proceso.instrucciones).classes('ml-8 text-sm text-gray-600 italic')
+                                ui.label(paso.proceso.instrucciones).classes('ml-8 text-sm text-gray-600 italic whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
 
-                        ui.button('Cerrar', on_click=dlg.close).props('outlined').classes('mt-4')
+                        with ui.row().classes('w-full justify-between mt-6'):
+                            ui.button('Cerrar', on_click=dlg.close).props('outlined')
+
+                            # SOLO permitir borrar recetas de usuario
+                            if getattr(receta, 'origen', 'usuario') == 'usuario':
+                                with ui.dialog() as confirm_dialog:
+                                    with ui.card().classes('p-6'):
+                                        ui.label('¿Eliminar receta?').classes('text-xl font-bold mb-2')
+                                        ui.label(
+                                            'Esta acción no se puede deshacer.'
+                                        ).classes('text-red-600 mb-4')
+
+                                        with ui.row().classes('gap-2 justify-end'):
+                                            ui.button(
+                                                'Cancelar',
+                                                on_click=confirm_dialog.close
+                                            ).props('flat')
+
+                                            ui.button(
+                                                'Eliminar',
+                                                on_click=lambda: [
+                                                    servicios.eliminar_receta_usuario(receta.id),
+                                                    confirm_dialog.close(),
+                                                    dlg.close(),
+                                                    refrescar_recetas(),
+                                                    ui.notify('Receta eliminada', type='positive')
+                                                ]
+                                            ).props('unelevated color=red icon=delete')
+
+                                ui.button(
+                                    'Eliminar receta',
+                                    icon='delete',
+                                    on_click=confirm_dialog.open,
+                                ).props('unelevated color=red')
+
                 dlg.open()
 
             def refrescar_recetas():
@@ -923,26 +957,38 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 recs_base = servicios.cargar_recetas_base()
                 for rec in recs_base:
                     with recetas_base_grid:
-                        with ui.card().classes('w-64 cursor-pointer hover:shadow-2xl transition-shadow').on(
-                            'click', lambda r=rec: mostrar_detalle_receta(r)
-                        ):
+                        with ui.card().classes(
+                            'w-64 h-56 overflow-hidden cursor-pointer '
+                            'hover:shadow-2xl transition-shadow'
+                        ).on('click', lambda r=rec: mostrar_detalle_receta(r)):
+
                             with ui.column().classes('p-4 gap-2'):
                                 ui.icon('restaurant', size='xl').classes('text-indigo-600')
-                                ui.label(rec.nombre).classes('font-bold text-lg')
-                                ui.label((rec.descripcion or '')[:60] + '...').classes('text-sm text-gray-600')
+                                ui.label(rec.nombre).classes(
+                                    'font-bold text-lg line-clamp-2 break-words'
+                                )
+                                ui.label(rec.descripcion or '').classes(
+                                    'text-sm text-gray-600 line-clamp-2 break-words'
+                                )
                                 ui.badge(f'{len(rec.pasos)} pasos', color='indigo')
 
                 recetas_user_grid.clear()
                 recs_usr = servicios.cargar_recetas_usuario()
                 for rec in recs_usr:
                     with recetas_user_grid:
-                        with ui.card().classes('w-64 cursor-pointer hover:shadow-2xl transition-shadow').on(
-                            'click', lambda r=rec: mostrar_detalle_receta(r)
-                        ):
+                        with ui.card().classes(
+                            'w-64 h-56 overflow-hidden cursor-pointer '
+                            'hover:shadow-2xl transition-shadow'
+                        ).on('click', lambda r=rec: mostrar_detalle_receta(r)):
+
                             with ui.column().classes('p-4 gap-2'):
                                 ui.icon('restaurant', size='xl').classes('text-indigo-600')
-                                ui.label(rec.nombre).classes('font-bold text-lg')
-                                ui.label(rec.descripcion[:60] + '...' if rec.descripcion else 'Sin descripción').classes('text-sm text-gray-600')
+                                ui.label(rec.nombre).classes(
+                                    'font-bold text-lg line-clamp-2 break-words'
+                                )
+                                ui.label(rec.descripcion or 'Sin descripción').classes(
+                                    'text-sm text-gray-600 line-clamp-2 break-words'
+                                )
                                 ui.badge(f'{len(rec.pasos)} pasos', color='pink')
 
             refrescar_recetas()
