@@ -377,7 +377,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
             with paso_card:
                 with ui.column().classes('p-6 gap-4'):
                     with ui.row().classes('items-center gap-3'):
-                        ui.icon('assignment', size='lg').classes('text-purple-600')
+                        ui.icon('list', size='lg').classes('text-purple-600')
                         paso_label = ui.label('Paso Actual').classes('text-2xl font-bold text-gray-800 dark:text-white')
 
                     instrucciones_label = ui.label('').classes('text-lg text-gray-700 dark:text-gray-300')
@@ -894,27 +894,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         try:
                             pasos_guardar = []
                             for orden, proc in pasos_temp:
-                                if proc.origen == 'usuario':
-                                    pasos_guardar.append((orden, proc.id))
-                                else:
-                                    procs_usr = servicios.cargar_procesos_usuario()
-                                    encontrado = None
-                                    for pu in procs_usr:
-                                        if (pu.nombre == proc.nombre and pu.tipo == proc.tipo and
-                                                pu.tipo_ejecucion == proc.tipo_ejecucion):
-                                            encontrado = pu
-                                            break
-                                    if not encontrado:
-                                        encontrado = servicios.crear_proceso_usuario(
-                                            nombre=proc.nombre,
-                                            tipo=proc.tipo,
-                                            tipo_ejecucion=proc.tipo_ejecucion,
-                                            instrucciones=proc.instrucciones,
-                                            temperatura=proc.temperatura,
-                                            tiempo_segundos=proc.tiempo_segundos,
-                                            velocidad=proc.velocidad,
-                                        )
-                                    pasos_guardar.append((orden, encontrado.id))
+                                # Usar directamente el ID del proceso, sea de base o de usuario
+                                pasos_guardar.append((orden, proc.id))
 
                             servicios.crear_receta_usuario(
                                 nombre=nombre,
@@ -953,6 +934,35 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     with ui.column().classes('p-6 gap-4'):
                         ui.label(receta.nombre).classes('text-3xl font-bold whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
                         ui.label(receta.descripcion).classes('text-gray-600 whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
+
+                        # Calcular tiempo estimado
+                        tiempo_total_segundos = 0
+                        pasos_manuales = 0
+                        for paso in receta.pasos:
+                            if paso.proceso.es_manual():
+                                pasos_manuales += 1
+                            else:
+                                tiempo_total_segundos += paso.proceso.tiempo_segundos
+                        
+                        # Formatear tiempo
+                        if tiempo_total_segundos > 0:
+                            horas = tiempo_total_segundos // 3600
+                            minutos = (tiempo_total_segundos % 3600) // 60
+                            segundos = tiempo_total_segundos % 60
+                            
+                            tiempo_str = ""
+                            if horas > 0:
+                                tiempo_str = f"{horas}h {minutos}m"
+                            elif minutos > 0:
+                                tiempo_str = f"{minutos}m {segundos}s" if segundos > 0 else f"{minutos}m"
+                            else:
+                                tiempo_str = f"{segundos}s"
+                            
+                            nota_manual = f" (+ {pasos_manuales} paso{'s' if pasos_manuales != 1 else ''} manual{'es' if pasos_manuales != 1 else ''})" if pasos_manuales > 0 else ""
+                            
+                            with ui.row().classes('items-center gap-2 bg-indigo-50 dark:bg-gray-700 p-3 rounded-lg'):
+                                ui.icon('schedule', size='sm').classes('text-indigo-600 dark:text-indigo-400')
+                                ui.label(f'Tiempo estimado: {tiempo_str}{nota_manual}').classes('text-sm font-medium text-gray-700 dark:text-gray-300')
 
                         if receta.ingredientes:
                             with ui.row().classes('items-center justify-between'):
