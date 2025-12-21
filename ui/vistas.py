@@ -45,7 +45,7 @@ def _crear_navegacion(robot: RobotCocina, refrescar_callback=None):
                 ui.icon('soup_kitchen', size='xl').classes('text-indigo-600 dark:text-indigo-400')
                 with ui.column().classes('gap-0'):
                     ui.label('Robot Cocina').classes('text-xl font-bold text-gray-800 dark:text-white')
-                    ui.label('Sistema de Control').classes('text-xs text-gray-500 dark:text-gray-400')
+                    ui.label('Sistema de Control').classes('text-xs text-gray-600 dark:text-gray-400')
 
             # Items de navegación
             def nav_item(icono: str, texto: str, ruta: str, badge: str = None):
@@ -574,13 +574,106 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
         with ui.column().classes('p-6 max-w-7xl mx-auto gap-6'):
 
-            with ui.card().classes('shadow-xl'):
-                with ui.column().classes('p-6 gap-4'):
+            def mostrar_detalle_proceso(proceso):
+                """Muestra un diálogo con los detalles completos del proceso."""
+                with ui.dialog() as dlg, ui.card().classes('max-w-xl'):
+                    with ui.column().classes('p-6 gap-4'):
+                        # Título
+                        ui.label(proceso.nombre).classes('text-2xl font-bold text-gray-800 dark:text-white')
+                        
+                        # Badge de tipo de ejecución
+                        if proceso.es_manual():
+                            ui.badge('MANUAL', color='purple').props('outline')
+                        else:
+                            ui.badge('AUTOMÁTICO', color='green').props('outline')
+                        
+                        ui.separator()
+                        
+                        # Información general
+                        with ui.column().classes('gap-2'):
+                            with ui.row().classes('items-center gap-2'):
+                                ui.icon('category', size='sm').classes('text-indigo-600')
+                                ui.label('Tipo:').classes('font-semibold')
+                                ui.label(proceso.tipo).classes('text-gray-600 dark:text-gray-400')
+                            
+                            with ui.row().classes('items-center gap-2'):
+                                ui.icon('source', size='sm').classes('text-indigo-600')
+                                ui.label('Origen:').classes('font-semibold')
+                                origen_texto = 'Fábrica' if proceso.origen == 'base' else 'Usuario'
+                                ui.label(origen_texto).classes('text-gray-600 dark:text-gray-400')
+                        
+                        # Parámetros (solo si es automático)
+                        if not proceso.es_manual():
+                            ui.separator()
+                            ui.label('Parámetros:').classes('text-lg font-bold')
+                            with ui.column().classes('gap-2 ml-4'):
+                                with ui.row().classes('items-center gap-2'):
+                                    ui.icon('thermostat', size='sm').classes('text-red-500')
+                                    ui.label(f'Temperatura: {proceso.temperatura}°C')
+                                
+                                with ui.row().classes('items-center gap-2'):
+                                    ui.icon('schedule', size='sm').classes('text-blue-500')
+                                    ui.label(f'Tiempo: {proceso.tiempo_segundos}s')
+                                
+                                with ui.row().classes('items-center gap-2'):
+                                    ui.icon('speed', size='sm').classes('text-green-500')
+                                    ui.label(f'Velocidad: {proceso.velocidad}')
+                        
+                        # Instrucciones (si existen)
+                        if proceso.instrucciones:
+                            ui.separator()
+                            ui.label('Instrucciones:').classes('text-lg font-bold')
+                            ui.label(proceso.instrucciones).classes(
+                                'text-gray-700 dark:text-gray-300 ml-4 p-3 bg-purple-50 dark:bg-gray-700 '
+                                'rounded-lg whitespace-normal break-words'
+                            )
+                        
+                        # Botones de acción
+                        with ui.row().classes('w-full justify-between mt-6'):
+                            ui.button('Cerrar', on_click=dlg.close).props('flat')
+                            
+                            # SOLO permitir borrar procesos de usuario
+                            if getattr(proceso, 'origen', 'usuario') == 'usuario':
+                                with ui.dialog() as confirm_dialog:
+                                    with ui.card().classes('p-6'):
+                                        ui.label('¿Eliminar proceso?').classes('text-xl font-bold mb-2')
+                                        ui.label(
+                                            'Esta acción no se puede deshacer.'
+                                        ).classes('text-red-600 mb-4')
+
+                                        with ui.row().classes('gap-2 justify-end'):
+                                            ui.button(
+                                                'Cancelar',
+                                                on_click=confirm_dialog.close
+                                            ).props('flat')
+
+                                            ui.button(
+                                                'Eliminar',
+                                                on_click=lambda: [
+                                                    servicios.eliminar_proceso_usuario(proceso.id),
+                                                    confirm_dialog.close(),
+                                                    dlg.close(),
+                                                    refrescar_procesos(),
+                                                    ui.notify('Proceso eliminado', type='positive')
+                                                ]
+                                            ).props('unelevated color=red icon=delete')
+
+                                ui.button(
+                                    'Eliminar proceso',
+                                    icon='delete',
+                                    on_click=confirm_dialog.open,
+                                ).props('unelevated color=red')
+                
+                dlg.open()
+
+            with ui.card().classes('w-full shadow-xl'):
+                with ui.column().classes('w-full p-6 gap-4'):
                     with ui.row().classes('items-center justify-between'):
                         ui.icon('factory', size='lg').classes('text-indigo-600')
                         ui.label('Procesos de Fábrica').classes('text-2xl font-bold')
-                    ui.label('Procesos predefinidos del sistema (no editables)').classes('text-gray-600 dark:text-gray-400')
+                    ui.label('Procesos predefinidos del sistema (no editables). Haz clic en una fila para ver detalles.').classes('text-gray-600 dark:text-gray-400')
 
+                    procesos_base_map = {}
                     tabla_base = ui.table(
                         columns=[
                             {'name': 'nombre', 'label': 'Nombre', 'field': 'nombre', 'align': 'left'},
@@ -592,37 +685,46 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ],
                         rows=[],
                         row_key='nombre'
-                    ).props('flat dense').classes('w-full')
+                    ).props('flat dense').classes('w-full cursor-pointer')
+                    
+                    tabla_base.on('row-click', lambda e: mostrar_detalle_proceso(procesos_base_map.get(e.args[1]['nombre'])))
 
-            with ui.card().classes('shadow-xl bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-800 dark:to-gray-900'):
-                with ui.column().classes('p-6 gap-4'):
+            with ui.card().classes('w-full shadow-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900'):
+                with ui.column().classes('w-full p-6 gap-4'):
                     with ui.row().classes('items-center gap-2'):
-                        ui.icon('add_circle', size='lg').classes('text-green-600')
+                        ui.icon('add_box', size='lg').classes('text-blue-600')
                         ui.label('Crear Nuevo Proceso').classes('text-2xl font-bold')
 
                     with ui.grid(columns=2).classes('w-full gap-4'):
                         input_nombre = ui.input('Nombre').props('outlined dense').classes('col-span-2')
-                        input_tipo = ui.input('Tipo (ej: preparación, cocción)').props('outlined dense')
-                        select_tipo_ej = ui.select(['manual', 'automatico'], label='Tipo de Ejecución', value='automatico').props('outlined dense')
+                        input_tipo = ui.input('Tipo (ej: Preparación, Cocción)').props('outlined dense')
+                        select_tipo_ej = ui.select(['Manual', 'Automático'], label='Tipo de Ejecución').props('outlined dense')
                         input_instrucciones = ui.textarea('Instrucciones (obligatorio para manuales)').props('outlined').classes('col-span-2')
-                        input_temp = ui.number('Temperatura (ºC)', value=0, min=0, max=120).props('outlined dense')
-                        input_tiempo = ui.number('Tiempo (s)', value=60, min=0).props('outlined dense')
+                        input_temp = ui.number('Temperatura (0-120ºC)', value=0, min=0, max=120).props('outlined dense')
+                        input_tiempo = ui.number('Tiempo (s)', value=60, min=1).props('outlined dense')
                         input_velocidad = ui.number('Velocidad (0-10)', value=0, min=0, max=10).props('outlined dense')
 
                     def crear_proceso():
+                        # Validaciones primero (fuera del try-except)
+                        nombre = (input_nombre.value or '').strip()
+                        tipo = (input_tipo.value or '').strip() or "generico"
+                        tipo_ej = select_tipo_ej.value
+                        instrucciones = (input_instrucciones.value or '').strip()
+                        
+                        if not nombre:
+                            ui.notify('El nombre es obligatorio', type='negative')
+                            return
+                        
+                        if not tipo_ej:
+                            ui.notify('Selecciona un tipo de ejecución', type='negative')
+                            return
+                        
+                        if tipo_ej == 'Manual' and not instrucciones:
+                            ui.notify('Los procesos manuales requieren instrucciones', type='negative')
+                            return
+                        
+                        # Crear proceso
                         try:
-                            nombre = (input_nombre.value or '').strip()
-                            tipo = (input_tipo.value or '').strip() or "generico"
-                            tipo_ej = select_tipo_ej.value
-                            instrucciones = (input_instrucciones.value or '').strip()
-
-                            if not nombre:
-                                ui.notify('❌ El nombre es obligatorio', type='negative')
-                                return
-                            if tipo_ej == 'manual' and not instrucciones:
-                                ui.notify('❌ Los manuales requieren instrucciones', type='negative')
-                                return
-
                             servicios.crear_proceso_usuario(
                                 nombre=nombre,
                                 tipo=tipo,
@@ -633,29 +735,27 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 velocidad=int(input_velocidad.value or 0),
                             )
 
-                            ui.notify('✅ Proceso creado', type='positive')
+                            ui.notify('Proceso creado', type='positive')
                             input_nombre.value = ''
                             input_tipo.value = ''
                             input_instrucciones.value = ''
                             refrescar_procesos()
                         except Exception as ex:
-                            ui.notify(f'❌ Error: {ex}', type='negative')
+                            ui.notify(f'Error: {ex}', type='negative')
 
                     ui.button('GUARDAR PROCESO', on_click=crear_proceso).props(
-                        'unelevated color=green size=lg icon=save'
+                        'unelevated color=blue size=lg icon=save'
                     ).classes('w-full')
 
-            with ui.card().classes('shadow-xl'):
-                with ui.column().classes('p-6 gap-4'):
+            with ui.card().classes('w-full shadow-xl'):
+                with ui.column().classes('w-full p-6 gap-4'):
                     with ui.row().classes('items-center justify-between'):
-                        with ui.row().classes('items-center gap-2'):
-                            ui.icon('precision_manufacturing', size='lg').classes('text-purple-600')
-                            ui.label('Mis Procesos').classes('text-2xl font-bold')
+                        ui.icon('precision_manufacturing', size='lg').classes('text-purple-600')
+                        ui.label('Mis Procesos').classes('text-2xl font-bold')
+                        
+                    ui.label('Procesos creados por ti. Haz clic en una fila para ver detalles.').classes('text-gray-600 dark:text-gray-400')
 
-                        procesos_map = {}
-                        select_borrar = ui.select([], label='Eliminar proceso...').props('outlined dense').classes('w-64')
-                        ui.button('Eliminar', on_click=lambda: borrar_proceso()).props('flat color=red icon=delete')
-
+                    procesos_map = {}
                     tabla_usuario = ui.table(
                         columns=[
                             {'name': 'nombre', 'label': 'Nombre', 'field': 'nombre', 'align': 'left'},
@@ -667,21 +767,13 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ],
                         rows=[],
                         row_key='nombre'
-                    ).props('flat dense').classes('w-full')
-
-                    def borrar_proceso():
-                        nombre = select_borrar.value
-                        if not nombre:
-                            ui.notify('Selecciona un proceso', type='warning')
-                            return
-                        proceso = procesos_map.get(nombre)
-                        if proceso:
-                            servicios.eliminar_proceso_usuario(proceso.id)
-                            ui.notify('Proceso eliminado', type='positive')
-                            refrescar_procesos()
+                    ).props('flat dense').classes('w-full cursor-pointer')
+                    
+                    tabla_usuario.on('row-click', lambda e: mostrar_detalle_proceso(procesos_map.get(e.args[1]['nombre'])))
 
             def refrescar_procesos():
                 procs_base = servicios.cargar_procesos_base()
+                procesos_base_map.clear()
                 tabla_base.rows = [
                     {
                         'nombre': p.nombre,
@@ -693,6 +785,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     }
                     for p in procs_base
                 ]
+                for p in procs_base:
+                    procesos_base_map[p.nombre] = p
                 tabla_base.update()
 
                 procs_user = servicios.cargar_procesos_usuario()
@@ -712,8 +806,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 procesos_map.clear()
                 for p in procs_user:
                     procesos_map[p.nombre] = p
-                select_borrar.options = list(procesos_map.keys())
-                select_borrar.update()
 
             refrescar_procesos()
 
@@ -740,7 +832,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
             with ui.card().classes('w-full shadow-xl'):
                 with ui.column().classes('w-full p-6 gap-4'):
-                    with ui.row().classes('items-center gap-2'):
+                    with ui.row().classes('items-center justify-between'):
                         ui.icon('factory', size='lg').classes('text-indigo-600')
                         ui.label('Recetas de Fábrica').classes('text-2xl font-bold')
 
@@ -919,7 +1011,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                     ui.button('GUARDAR RECETA', on_click=crear_receta).props(
                         'unelevated color=blue size=lg icon=save'
-                    ).classes('w-full mt-4')
+                    ).classes('w-full')
 
             with ui.card().classes('w-full shadow-xl'):
                 with ui.column().classes('w-full p-6 gap-4'):
@@ -982,7 +1074,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 ui.label(paso.proceso.instrucciones).classes('ml-8 text-sm text-gray-600 italic whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
 
                         with ui.row().classes('w-full justify-between mt-6'):
-                            ui.button('Cerrar', on_click=dlg.close).props('outlined')
+                            ui.button('Cerrar', on_click=dlg.close).props('flat')
 
                             # SOLO permitir borrar recetas de usuario
                             if getattr(receta, 'origen', 'usuario') == 'usuario':
