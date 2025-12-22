@@ -280,7 +280,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
             with ui.element('div').classes('grid grid-cols-1 md:grid-cols-3 gap-4 w-full'):
 
                 # Selector de receta
-                with ui.card().classes(_card_classes()):
+                card_receta = ui.card().classes(_card_classes())
+                with card_receta:
                     with ui.column().classes('p-6 gap-4 h-full flex flex-col justify-between'):
                         with ui.row().classes('items-center justify-between'):
                             ui.icon('menu_book', size='md').classes('text-indigo-600')
@@ -300,7 +301,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             boton_nueva = ui.button('Nueva Receta', on_click=lambda: ui.navigate.to('/recetas'), color='green').props('outline icon=add_circle')
 
                 # Card Modo
-                with ui.card().classes(_card_classes()):
+                card_modo = ui.card().classes(_card_classes())
+                with card_modo:
                     with ui.column().classes('p-6 gap-4 h-full flex flex-col justify-between'):
                         with ui.row().classes('items-center justify-between'):
                             ui.icon('tune', size='md').classes('text-indigo-600')
@@ -478,6 +480,23 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
             # ============ FUNCIONES DE ACTUALIZACIÓN ============
 
+            def set_cards_bloqueadas(bloquear: bool):
+                # --- Card Selección de receta ---
+                select_receta.set_enabled(not bloquear)
+                boton_actualizar.set_enabled(not bloquear)
+                boton_nueva.set_enabled(not bloquear)
+
+                # --- Card Modo ---
+                toggle_modo.set_enabled(not bloquear)
+
+                # --- Efecto visual ---
+                if bloquear:
+                    card_receta.classes(add='opacity-50 pointer-events-none')
+                    card_modo.classes(add='opacity-50 pointer-events-none')
+                else:
+                    card_receta.classes(remove='opacity-50 pointer-events-none')
+                    card_modo.classes(remove='opacity-50 pointer-events-none')
+
             def refrescar_recetas():
                 etiquetas = construir_etiquetas_recetas()
                 select_receta.options = etiquetas
@@ -597,6 +616,14 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
             def refrescar_ui():
                 estado_actual = robot.estado
+
+                coccion_activa = estado_actual in (
+                    EstadoRobot.COCINANDO,
+                    EstadoRobot.PAUSADO,
+                    EstadoRobot.ESPERANDO_CONFIRMACION,
+                )
+
+                set_cards_bloqueadas(coccion_activa)
 
                 estados_config = {
                     EstadoRobot.APAGADO: ('APAGADO', 'text-gray-400'),
