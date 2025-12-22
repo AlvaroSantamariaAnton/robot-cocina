@@ -561,6 +561,10 @@ def registrar_vistas(robot: RobotCocina) -> None:
     def pagina_procesos() -> None:
         ui.page_title('Procesos - Robot de Cocina')
         
+        # Estados para controlar la visualización de procesos
+        mostrar_todos_base = {'value': False}
+        mostrar_todos_usuario = {'value': False}
+        
         # Función de refresco para procesos
         def refrescar_procesos_completo():
             refrescar_procesos()
@@ -688,6 +692,24 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     ).props('flat').classes('w-full cursor-pointer')
                     
                     tabla_base.on('row-click', lambda e: mostrar_detalle_proceso(procesos_base_map.get(e.args[1]['nombre'])))
+                    
+                    # Botón para expandir/contraer procesos de fábrica (DEBAJO de la tabla)
+                    boton_expandir_base = ui.button(
+                        'Mostrar todos los procesos',
+                        icon='expand_more',
+                        on_click=lambda: toggle_base()
+                    ).props('flat color=indigo').classes('mt-2')
+                    
+                    def toggle_base():
+                        mostrar_todos_base['value'] = not mostrar_todos_base['value']
+                        refrescar_procesos()
+                        if mostrar_todos_base['value']:
+                            boton_expandir_base.props('icon=expand_less')
+                            boton_expandir_base.text = 'Mostrar menos'
+                        else:
+                            boton_expandir_base.props('icon=expand_more')
+                            boton_expandir_base.text = 'Mostrar todos los procesos'
+                        boton_expandir_base.update()
 
             with ui.card().classes('w-full shadow-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900'):
                 with ui.column().classes('w-full p-6 gap-4'):
@@ -774,10 +796,32 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     ).props('flat').classes('w-full cursor-pointer')
                     
                     tabla_usuario.on('row-click', lambda e: mostrar_detalle_proceso(procesos_map.get(e.args[1]['nombre'])))
+                    
+                    # Botón para expandir/contraer procesos de usuario (DEBAJO de la tabla)
+                    boton_expandir_usuario = ui.button(
+                        'Mostrar todos los procesos',
+                        icon='expand_more',
+                        on_click=lambda: toggle_usuario()
+                    ).props('flat color=indigo').classes('mt-2')
+                    
+                    def toggle_usuario():
+                        mostrar_todos_usuario['value'] = not mostrar_todos_usuario['value']
+                        refrescar_procesos()
+                        if mostrar_todos_usuario['value']:
+                            boton_expandir_usuario.props('icon=expand_less')
+                            boton_expandir_usuario.text = 'Mostrar menos'
+                        else:
+                            boton_expandir_usuario.props('icon=expand_more')
+                            boton_expandir_usuario.text = 'Mostrar todos los procesos'
+                        boton_expandir_usuario.update()
 
             def refrescar_procesos():
                 procs_base = servicios.cargar_procesos_base()
                 procesos_base_map.clear()
+                
+                # Limitar a 10 si no se ha expandido
+                procs_base_a_mostrar = procs_base if mostrar_todos_base['value'] else procs_base[:10]
+                
                 tabla_base.rows = [
                     {
                         'nombre': p.nombre,
@@ -787,13 +831,24 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         'tiempo': f'{p.tiempo_segundos}s' if p.tipo_ejecucion == 'automatico' else '-',
                         'vel': p.velocidad if p.tipo_ejecucion == 'automatico' else '-',
                     }
-                    for p in procs_base
+                    for p in procs_base_a_mostrar
                 ]
                 for p in procs_base:
                     procesos_base_map[p.nombre] = p
                 tabla_base.update()
+                
+                # Actualizar visibilidad del botón de fábrica
+                total_base = len(procs_base)
+                if total_base > 10:
+                    boton_expandir_base.set_visibility(True)
+                else:
+                    boton_expandir_base.set_visibility(False)
 
                 procs_user = servicios.cargar_procesos_usuario()
+                
+                # Limitar a 10 si no se ha expandido
+                procs_user_a_mostrar = procs_user if mostrar_todos_usuario['value'] else procs_user[:10]
+                
                 tabla_usuario.rows = [
                     {
                         'nombre': p.nombre,
@@ -803,13 +858,20 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         'tiempo': f'{p.tiempo_segundos}s' if p.tipo_ejecucion == 'automatico' else '-',
                         'vel': p.velocidad if p.tipo_ejecucion == 'automatico' else '-',
                     }
-                    for p in procs_user
+                    for p in procs_user_a_mostrar
                 ]
                 tabla_usuario.update()
 
                 procesos_map.clear()
                 for p in procs_user:
                     procesos_map[p.nombre] = p
+                
+                # Actualizar visibilidad del botón de usuario
+                total_user = len(procs_user)
+                if total_user > 10:
+                    boton_expandir_usuario.set_visibility(True)
+                else:
+                    boton_expandir_usuario.set_visibility(False)
 
             refrescar_procesos()
 
