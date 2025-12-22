@@ -377,6 +377,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             barra_progreso.value = 0.0
                             progreso_label.text = "0%"
                             paso_card.set_visibility(False)
+                            paso_label.text = 'Paso Actual'
                             boton_confirmar.set_visibility(False)
                             ui.notify('Cocción cancelada', type='warning')
 
@@ -627,37 +628,46 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     # Solo actualizar nombre si hay cocción activa
                     if estado_actual in (EstadoRobot.COCINANDO, EstadoRobot.PAUSADO, EstadoRobot.ESPERANDO_CONFIRMACION):
                         ESTADO_RECETA['nombre'] = receta.nombre
-                    
-                    pasos = receta.pasos
-                    if pasos:
-                        idx = robot.indice_paso_actual
-                        if 0 <= idx < len(pasos):
-                            paso = pasos[idx]
-                            paso_label.text = f'Paso {idx+1}/{len(pasos)}: {paso.proceso.nombre}'
+                        
+                        # Solo actualizar paso si estamos en cocción activa
+                        pasos = receta.pasos
+                        if pasos:
+                            idx = robot.indice_paso_actual
+                            if 0 <= idx < len(pasos):
+                                paso = pasos[idx]
+                                paso_label.text = f'Paso {idx+1}/{len(pasos)}: {paso.proceso.nombre}'
 
-                            if paso.proceso.es_manual():
-                                instrucciones_label.text = paso.proceso.instrucciones
-                                paso_card.set_visibility(True)
+                                if paso.proceso.es_manual():
+                                    instrucciones_label.text = paso.proceso.instrucciones
+                                    paso_card.set_visibility(True)
+                                else:
+                                    paso_card.set_visibility(False)
+
+                                if estado_actual == EstadoRobot.ESPERANDO_CONFIRMACION:
+                                    boton_confirmar.set_visibility(True)
+                                else:
+                                    boton_confirmar.set_visibility(False)
                             else:
                                 paso_card.set_visibility(False)
-
-                            if estado_actual == EstadoRobot.ESPERANDO_CONFIRMACION:
-                                boton_confirmar.set_visibility(True)
-                            else:
+                                paso_label.text = 'Paso Actual'
                                 boton_confirmar.set_visibility(False)
                         else:
                             paso_card.set_visibility(False)
+                            paso_label.text = 'Paso Actual'
                             boton_confirmar.set_visibility(False)
                     else:
+                        # Si no estamos en cocción activa, resetear paso
                         paso_card.set_visibility(False)
+                        paso_label.text = 'Paso Actual'
                         boton_confirmar.set_visibility(False)
                 else:
                     paso_card.set_visibility(False)
+                    paso_label.text = 'Paso Actual'
                     boton_confirmar.set_visibility(False)
 
             ui.timer(interval=0.5, callback=refrescar_ui)
             refrescar_recetas()
-
+            
     # ==================================================================================
     # PÁGINA PROCESOS
     # ==================================================================================
