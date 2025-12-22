@@ -397,19 +397,40 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                         def cancelar_coccion():
                             # Validar que el robot está en un estado de cocción
-                            if robot.estado not in (EstadoRobot.COCINANDO, EstadoRobot.PAUSADO, EstadoRobot.ESPERANDO_CONFIRMACION):
+                            if robot.estado not in (
+                                EstadoRobot.COCINANDO,
+                                EstadoRobot.PAUSADO,
+                                EstadoRobot.ESPERANDO_CONFIRMACION
+                            ):
                                 ui.notify('No hay cocción en curso', type='warning')
                                 return
                             
                             robot.detener_coccion()
+
+                            # Restablecer selección de receta
+                            select_receta.value = None
+                            seleccion['label_receta'] = None
+                            ULTIMA_RECETA_SELECCIONADA['label'] = None
+                            ESTADO_RECETA['nombre'] = "(ninguna)"
+
+                            # Ocultar receta actual
+                            ingredientes_expansion.set_visibility(False)
+                            pasos_expansion.set_visibility(False)
+                            
                             ESTADO_BARRA['completada'] = False
                             ESTADO_BARRA['ultimo_progreso'] = 0.0
                             ESTADO_BARRA['ultimo_estado'] = EstadoRobot.ESPERA
+
                             barra_progreso.value = 0.0
                             progreso_label.text = "0%"
+
                             paso_card.set_visibility(False)
                             paso_label.text = 'Paso Actual'
                             boton_confirmar.set_visibility(False)
+
+                            # Desbloquear cards de selección y modo
+                            set_cards_bloqueadas(False)
+                            
                             ui.notify('Cocción cancelada', type='warning')
 
                         # Diálogo de confirmación para cancelar
