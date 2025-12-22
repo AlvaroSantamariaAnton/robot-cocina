@@ -230,20 +230,36 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 banner_apagado.set_visibility(False)
                                 ui.notify('Robot encendido', type='positive', position='top')
                             else:
+                                # Si hay una cocción activa, cancelarla SIEMPRE
+                                if robot.estado in (
+                                    EstadoRobot.COCINANDO,
+                                    EstadoRobot.PAUSADO,
+                                    EstadoRobot.ESPERANDO_CONFIRMACION,
+                                ):
+                                    robot.detener_coccion()
+
+                                # Ahora sí: apagar de verdad
                                 robot.apagar()
+
                                 icon_power.classes(remove='text-green-600')
                                 icon_power.classes(add='text-red-600')
+
                                 ESTADO_BARRA['completada'] = False
+
                                 # Limpiar selección de receta al apagar
                                 select_receta.value = None
                                 seleccion['label_receta'] = None
                                 ULTIMA_RECETA_SELECCIONADA['label'] = None
                                 ESTADO_RECETA['nombre'] = "(ninguna)"
+
                                 ingredientes_expansion.set_visibility(False)
                                 pasos_expansion.set_visibility(False)
+
                                 barra_progreso.value = 0.0
                                 progreso_label.text = "0%"
+
                                 banner_apagado.set_visibility(True)
+
                                 ui.notify('Robot apagado', type='warning', position='top')
                             refrescar_ui()
 

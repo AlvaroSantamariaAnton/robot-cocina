@@ -485,18 +485,18 @@ class RobotCocina:
 
             # Receta completada
             with self._lock:
-                self._progreso = 100.0
-                self._estado = EstadoRobot.ESPERA
-                # Reseteamos posición para que la próxima vez empiece desde cero
-                self._reset_progreso_y_posicion()
-                self._notificar_cambio()
+                if self._estado != EstadoRobot.APAGADO:
+                    self._progreso = 100.0
+                    self._estado = EstadoRobot.ESPERA
+                    self._reset_progreso_y_posicion()
+                    self._notificar_cambio()
 
         except ProcesoInterrumpidoError:
             with self._lock:
-                # Si se cancela, dejamos estado en ESPERA y progreso en 0
-                self._estado = EstadoRobot.ESPERA
-                self._reset_progreso_y_posicion()
-                self._notificar_cambio()
+                if self._estado != EstadoRobot.APAGADO:
+                    self._estado = EstadoRobot.ESPERA
+                    self._reset_progreso_y_posicion()
+                    self._notificar_cambio()
         except Exception:
             with self._lock:
                 self._estado = EstadoRobot.ERROR
