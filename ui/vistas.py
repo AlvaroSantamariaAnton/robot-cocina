@@ -262,7 +262,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.icon('schedule', size='md').classes('text-indigo-600')
                             ui.label('Progreso de Cocción').classes('text-xl font-bold text-gray-800 dark:text-white')
 
-                        progreso_label = ui.label('0%').classes('text-3xl font-bold text-blue-500 dark:text-blue-400')
+                        progreso_label = ui.label('0%').classes('text-3xl font-bold text-indigo-500 dark:text-blue-400')
                         barra_progreso = ui.linear_progress(value=0.0, show_value=False, size='md').props(
                             'rounded color=indigo stripe animated'
                         ).classes('w-full')
@@ -566,9 +566,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ingredientes_lista.set_content(html_ings)
                         ingredientes_expansion.set_visibility(True)
                     else:
-                        ESTADO_RECETA['nombre'] = "(ninguna)"  # ← CAMBIAR de receta_label.text
                         ingredientes_expansion.set_visibility(False)
-                        pasos_expansion.set_visibility(False)  # ← AGREGAR
                     
                     # Mostrar pasos de la receta
                     if getattr(receta, 'pasos', None):
