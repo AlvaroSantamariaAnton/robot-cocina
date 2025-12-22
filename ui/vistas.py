@@ -678,14 +678,14 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         columns=[
                             {'name': 'nombre', 'label': 'Nombre', 'field': 'nombre', 'align': 'left'},
                             {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo', 'align': 'left'},
-                            {'name': 'tipo_ej', 'label': 'Tipo de Ejecución', 'field': 'tipo_ej', 'align': 'center'},
+                            {'name': 'tipo_ej', 'label': 'Tipo de Ejecución', 'field': 'tipo_ej', 'align': 'left'},
                             {'name': 'temp', 'label': 'Temp', 'field': 'temp', 'align': 'right'},
                             {'name': 'tiempo', 'label': 'Tiempo', 'field': 'tiempo', 'align': 'right'},
                             {'name': 'vel', 'label': 'Vel', 'field': 'vel', 'align': 'right'},
                         ],
                         rows=[],
                         row_key='nombre'
-                    ).props('flat dense').classes('w-full cursor-pointer')
+                    ).props('flat').classes('w-full cursor-pointer')
                     
                     tabla_base.on('row-click', lambda e: mostrar_detalle_proceso(procesos_base_map.get(e.args[1]['nombre'])))
 
@@ -764,14 +764,14 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         columns=[
                             {'name': 'nombre', 'label': 'Nombre', 'field': 'nombre', 'align': 'left'},
                             {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo', 'align': 'left'},
-                            {'name': 'tipo_ej', 'label': 'Tipo de Ejecución', 'field': 'tipo_ej', 'align': 'center'},
+                            {'name': 'tipo_ej', 'label': 'Tipo de Ejecución', 'field': 'tipo_ej', 'align': 'left'},
                             {'name': 'temp', 'label': 'Temp', 'field': 'temp', 'align': 'right'},
                             {'name': 'tiempo', 'label': 'Tiempo', 'field': 'tiempo', 'align': 'right'},
                             {'name': 'vel', 'label': 'Vel', 'field': 'vel', 'align': 'right'},
                         ],
                         rows=[],
                         row_key='nombre'
-                    ).props('flat dense').classes('w-full cursor-pointer')
+                    ).props('flat').classes('w-full cursor-pointer')
                     
                     tabla_usuario.on('row-click', lambda e: mostrar_detalle_proceso(procesos_map.get(e.args[1]['nombre'])))
 
