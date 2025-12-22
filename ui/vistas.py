@@ -259,6 +259,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 progreso_label.text = "0%"
 
                                 banner_apagado.set_visibility(True)
+                                paso_auto_card.set_visibility(False)
 
                                 ui.notify('Robot apagado', type='warning', position='top')
                             refrescar_ui()
@@ -279,8 +280,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.label('Progreso de Cocción').classes('text-xl font-bold text-gray-800 dark:text-white')
 
                         progreso_label = ui.label('0%').classes('text-3xl font-bold text-indigo-500 dark:text-blue-400')
-                        barra_progreso = ui.linear_progress(value=0.0, show_value=False, size='md').props(
-                            'rounded color=indigo stripe animated'
+                        barra_progreso = ui.linear_progress(value=0.0, show_value=False, size='lg').props(
+                            'rounded stripe animated color=indigo'
                         ).classes('w-full')
 
                 # Card Receta Actual
@@ -425,12 +426,13 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             progreso_label.text = "0%"
 
                             paso_card.set_visibility(False)
+                            paso_auto_card.set_visibility(False)
                             paso_label.text = 'Paso Actual'
                             boton_confirmar.set_visibility(False)
 
                             # Desbloquear cards de selección y modo
                             set_cards_bloqueadas(False)
-                            
+
                             ui.notify('Cocción cancelada', type='warning')
 
                         # Diálogo de confirmación para cancelar
@@ -515,7 +517,76 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 boton_confirmar.set_visibility(False)
                 paso_card.set_visibility(False)
 
+            # ============ FILA 4.5: PASO AUTOMÁTICO ============
+            paso_auto_card = ui.card().classes(
+                'w-full bg-gradient-to-r from-green-50 to-emerald-50 '
+                'dark:from-gray-800 dark:to-gray-900 '
+                'shadow-xl border-2 border-green-300 dark:border-green-700 rounded-xl'
+            )
+            with paso_auto_card:
+                with ui.column().classes('p-6 gap-5'):
+
+                    # 🔹 Título: Paso X/Y: Nombre
+                    with ui.row().classes('items-center gap-3'):
+                        ui.icon('list', size='lg').classes('text-green-600')
+                        paso_auto_titulo = ui.label(
+                            'Paso 1/1: -'
+                        ).classes('text-2xl font-bold text-gray-800 dark:text-white')
+
+                    # 🔹 Zona de progreso (porcentaje + barra)
+                    with ui.column().classes('w-full gap-2'):
+
+                        # Porcentaje centrado
+                        paso_auto_progreso = ui.label('0%').classes(
+                            'text-lg font-semibold text-green-700 dark:text-green-400 text-center'
+                        )
+
+                        # Barra de progreso más alta y ancha
+                        paso_auto_barra = ui.linear_progress(
+                            value=0.0,
+                            show_value=False,
+                            size='lg',
+                        ).props(
+                            'rounded stripe animated color=green'
+                        ).classes('w-full')
+
+            paso_auto_card.set_visibility(False)
+
             # ============ FUNCIONES DE ACTUALIZACIÓN ============
+            def actualizar_paso_automatico():
+                receta = robot.receta_actual
+                if not receta:
+                    paso_auto_card.set_visibility(False)
+                    return
+
+                pasos = receta.pasos
+                total_pasos = len(pasos)
+                idx = robot.indice_paso_actual
+
+                if not (0 <= idx < total_pasos):
+                    paso_auto_card.set_visibility(False)
+                    return
+
+                paso = pasos[idx]
+
+                # Si es manual, esta card no aplica
+                if paso.proceso.es_manual():
+                    paso_auto_card.set_visibility(False)
+                    return
+
+                # Calcular progreso del paso
+                progreso_global = float(robot.progreso or 0.0)
+                progreso_por_paso = 100 / total_pasos
+                inicio_paso = idx * progreso_por_paso
+
+                progreso_paso = (progreso_global - inicio_paso) / progreso_por_paso
+                progreso_paso = max(0.0, min(1.0, progreso_paso))
+
+                paso_auto_titulo.text = f'Paso {idx + 1}/{total_pasos}: {paso.proceso.nombre}'
+                paso_auto_barra.value = progreso_paso
+                paso_auto_progreso.text = f'{int(progreso_paso * 100)}%'
+
+                paso_auto_card.set_visibility(True)
 
             def set_cards_bloqueadas(bloquear: bool):
                 # --- Card Selección de receta ---
@@ -733,10 +804,14 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 paso_label.text = f'Paso {idx+1}/{len(pasos)}: {paso.proceso.nombre}'
 
                                 if paso.proceso.es_manual():
+                                    # Paso MANUAL
                                     instrucciones_label.text = paso.proceso.instrucciones
                                     paso_card.set_visibility(True)
+                                    paso_auto_card.set_visibility(False)
                                 else:
+                                    # Paso AUTOMÁTICO
                                     paso_card.set_visibility(False)
+                                    actualizar_paso_automatico()
 
                                 if estado_actual == EstadoRobot.ESPERANDO_CONFIRMACION:
                                     boton_confirmar.set_visibility(True)
@@ -744,19 +819,23 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     boton_confirmar.set_visibility(False)
                             else:
                                 paso_card.set_visibility(False)
+                                paso_auto_card.set_visibility(False)
                                 paso_label.text = 'Paso Actual'
                                 boton_confirmar.set_visibility(False)
                         else:
                             paso_card.set_visibility(False)
+                            paso_auto_card.set_visibility(False)
                             paso_label.text = 'Paso Actual'
                             boton_confirmar.set_visibility(False)
                     else:
                         # Si no estamos en cocción activa, resetear paso
                         paso_card.set_visibility(False)
+                        paso_auto_card.set_visibility(False)
                         paso_label.text = 'Paso Actual'
                         boton_confirmar.set_visibility(False)
                 else:
                     paso_card.set_visibility(False)
+                    paso_auto_card.set_visibility(False)
                     paso_label.text = 'Paso Actual'
                     boton_confirmar.set_visibility(False)
 
