@@ -333,7 +333,15 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                             ESTADO_BARRA['completada'] = False
 
-                            if robot.estado in (EstadoRobot.PAUSADO, EstadoRobot.ESPERANDO_CONFIRMACION):
+                            if robot.estado == EstadoRobot.ESPERANDO_CONFIRMACION:
+                                try:
+                                    robot.confirmar_paso_manual()
+                                    ui.notify('Paso confirmado, continuando...', type='positive')
+                                except Exception as ex:
+                                    ui.notify(f'Error: {ex}', type='negative')
+                                return
+                            
+                            if robot.estado == EstadoRobot.PAUSADO:
                                 try:
                                     robot.iniciar_coccion()
                                     ui.notify('Reanudando...', type='positive')
@@ -439,7 +447,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
             def confirmar_paso():
                 robot.confirmar_paso_manual()
-                ui.notify('Paso confirmado', type='positive')
+                ui.notify('Paso confirmado, continuando...', type='positive')
                 boton_confirmar.set_visibility(False)
                 paso_card.set_visibility(False)
 
@@ -667,7 +675,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
             ui.timer(interval=0.5, callback=refrescar_ui)
             refrescar_recetas()
-            
+
     # ==================================================================================
     # PÁGINA PROCESOS
     # ==================================================================================
