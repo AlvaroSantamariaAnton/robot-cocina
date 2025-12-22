@@ -12,7 +12,7 @@ from robot import servicios
 
 THEME_STATE = {'dark': False}
 
-# Paleta de colores profesional
+# Paleta de colores
 COLORS = {
     'primary': '#4F46E5',      # Indigo moderno
     'secondary': '#7C3AED',    # Purple
@@ -120,6 +120,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
     RECETAS_DISPONIBLES: Dict[str, object] = {}
     ULTIMA_RECETA_SELECCIONADA: dict[str, Optional[str]] = {'label': None}
+    ESTADO_RECETA = {'nombre': '(ninguna)'}  # ← AGREGAR ESTA LÍNEA
     ESTADO_BARRA = {
         'completada': False,
         'ultimo_progreso': 0.0,
@@ -157,8 +158,10 @@ def registrar_vistas(robot: RobotCocina) -> None:
             refrescar_recetas()
             switch_encendido.value = False
             ESTADO_BARRA['completada'] = False
-            receta_label.text = "(ninguna)"
+            ESTADO_RECETA['nombre'] = "(ninguna)"  # ← Cambiar de receta_label.text
+            pasos_expansion.set_visibility(False)  # ← AGREGAR esta línea
             ingredientes_expansion.set_visibility(False)
+            pasos_expansion.set_visibility(False)
             barra_progreso.value = 0.0
             progreso_label.text = "0%"
             paso_card.set_visibility(False)
@@ -187,6 +190,25 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 modo['valor'] = e.value
                 ui.notify(f'Modo seleccionado: {modo["valor"]}', type='info')
 
+            # ============ BANNER DE ADVERTENCIA - ROBOT APAGADO ============
+            banner_apagado = ui.card().classes(
+                'w-full bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 '
+                'border-l-4 border-amber-500 shadow-lg'
+            )
+            with banner_apagado:
+                with ui.row().classes('items-center gap-4 p-4'):
+                    ui.icon('power_off', size='lg').classes('text-amber-600 dark:text-amber-400')
+                    with ui.column().classes('gap-1 flex-grow'):
+                        with ui.row().classes('items-center gap-2'):
+                            ui.label('Robot Apagado').classes('text-xl font-bold text-amber-800 dark:text-amber-300')
+                            ui.icon('warning', size='md').classes('text-amber-500 animate-pulse')
+                        ui.label('Enciende el robot para comenzar a cocinar y acceder a todas las funciones.').classes(
+                            'text-sm text-amber-700 dark:text-amber-400'
+                        )
+            
+            # Mostrar banner solo si el robot está apagado
+            banner_apagado.set_visibility(robot.estado == EstadoRobot.APAGADO)
+
             # ============ FILA 1: MÉTRICAS PRINCIPALES ============
             with ui.element('div').classes('grid grid-cols-1 md:grid-cols-3 gap-4 w-full'):
 
@@ -205,12 +227,23 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 icon_power.classes(remove='text-red-600')
                                 icon_power.classes(add='text-green-600')
                                 ESTADO_BARRA['completada'] = False
+                                banner_apagado.set_visibility(False)
                                 ui.notify('Robot encendido', type='positive', position='top')
                             else:
                                 robot.apagar()
                                 icon_power.classes(remove='text-green-600')
                                 icon_power.classes(add='text-red-600')
                                 ESTADO_BARRA['completada'] = False
+                                # Limpiar selección de receta al apagar
+                                select_receta.value = None
+                                seleccion['label_receta'] = None
+                                ULTIMA_RECETA_SELECCIONADA['label'] = None
+                                ESTADO_RECETA['nombre'] = "(ninguna)"
+                                ingredientes_expansion.set_visibility(False)
+                                pasos_expansion.set_visibility(False)
+                                barra_progreso.value = 0.0
+                                progreso_label.text = "0%"
+                                banner_apagado.set_visibility(True)
                                 ui.notify('Robot apagado', type='warning', position='top')
                             refrescar_ui()
 
@@ -240,7 +273,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         with ui.row().classes('items-center justify-between'):
                             ui.icon('restaurant', size='md').classes('text-indigo-600')
                             ui.label('Receta Actual').classes('text-lg font-semibold text-gray-700 dark:text-gray-200')
-                        receta_label = ui.label('(ninguna)').classes('text-xl font-medium text-gray-600 dark:text-gray-400')
+                        receta_label = ui.label().classes('text-xl font-medium text-gray-600 dark:text-gray-400')
+                        receta_label.bind_text_from(ESTADO_RECETA, 'nombre')
 
             # ============ FILA 2: SELECCIÓN, MODO Y CONTROL ============
             with ui.element('div').classes('grid grid-cols-1 md:grid-cols-3 gap-4 w-full'):
@@ -262,8 +296,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ).props('outlined').classes('w-full min-h-[56px]')
 
                         with ui.row().classes('gap-2'):
-                            ui.button('Actualizar Lista', on_click=lambda: refrescar_recetas(), color='indigo').props('outline icon=refresh')
-                            ui.button('Nueva Receta', on_click=lambda: ui.navigate.to('/recetas'), color='green').props('outline icon=add_circle')
+                            boton_actualizar = ui.button('Actualizar Lista', on_click=lambda: refrescar_recetas(), color='indigo').props('outline icon=refresh')
+                            boton_nueva = ui.button('Nueva Receta', on_click=lambda: ui.navigate.to('/recetas'), color='green').props('outline icon=add_circle')
 
                 # Card Modo
                 with ui.card().classes(_card_classes()):
@@ -279,7 +313,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.label('• Modo manual: Controla todo tú mismo.')
 
                         # Toggle Guiado / Manual (solo UI por ahora)
-                        ui.toggle(
+                        toggle_modo = ui.toggle(
                             ['Guiado', 'Manual'],
                             value='Guiado',
                             on_change=on_cambio_modo
@@ -347,13 +381,13 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.notify('Cocción cancelada', type='warning')
 
                         with ui.column().classes('gap-2 w-full'):
-                            ui.button('INICIAR / REANUDAR', on_click=iniciar_coccion).props(
+                            boton_iniciar = ui.button('INICIAR / REANUDAR', on_click=iniciar_coccion).props(
                                 'unelevated color=green icon=play_arrow size=lg'
                             ).classes('w-full')
-                            ui.button('PAUSAR', on_click=pausar_coccion).props(
+                            boton_pausar = ui.button('PAUSAR', on_click=pausar_coccion).props(
                                 'outline color=orange icon=pause'
                             ).classes('w-full')
-                            ui.button('CANCELAR', on_click=cancelar_coccion).props(
+                            boton_cancelar = ui.button('CANCELAR', on_click=cancelar_coccion).props(
                                 'outline color=red icon=stop'
                             ).classes('w-full')
 
@@ -368,6 +402,18 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     ingredientes_lista = ui.html('<div></div>', sanitize=False).classes('text-gray-700 dark:text-gray-300')
 
             ingredientes_expansion.set_visibility(False)
+
+            # ============ FILA 3.5: PASOS (expandible) ============
+            pasos_expansion = ui.expansion(
+                'Pasos de la Receta',
+                icon='list'
+            ).classes('w-full rounded-xl bg-white dark:bg-gray-800 shadow-lg')
+
+            with pasos_expansion:
+                with ui.column().classes('gap-2'):
+                    pasos_lista = ui.html('<div></div>', sanitize=False).classes('text-gray-700 dark:text-gray-300')
+
+            pasos_expansion.set_visibility(False)
 
             # ============ FILA 4: PASO ACTUAL ============
             paso_card = ui.card().classes(
@@ -419,7 +465,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             break
 
                 if receta_mostrada:
-                    receta_label.text = receta_mostrada.nombre
+                    ESTADO_RECETA['nombre'] = receta_mostrada.nombre  # ← CAMBIAR de receta_label.text
+                    
                     if getattr(receta_mostrada, 'ingredientes', None):
                         html_ings = '<div class="space-y-2">'
                         for ing in receta_mostrada.ingredientes:
@@ -435,9 +482,29 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ingredientes_expansion.set_visibility(True)
                     else:
                         ingredientes_expansion.set_visibility(False)
+                    
+                    # Mostrar pasos de la receta (NUEVO)
+                    if getattr(receta_mostrada, 'pasos', None):
+                        html_pasos = '<div class="space-y-3">'
+                        for paso in receta_mostrada.pasos:
+                            tipo_badge = '<span class="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 px-2 py-1 rounded text-xs font-semibold">Manual</span>' if paso.proceso.es_manual() else '<span class="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded text-xs font-semibold">Automático</span>'
+                            html_pasos += f'<div class="border-l-4 border-indigo-500 pl-4 py-2">'
+                            html_pasos += f'<div class="flex items-center gap-2 mb-1">'
+                            html_pasos += f'<span class="font-bold text-indigo-600 dark:text-indigo-400">Paso {paso.orden}:</span> {tipo_badge}'
+                            html_pasos += f'</div>'
+                            html_pasos += f'<div class="font-medium">{paso.proceso.nombre}</div>'
+                            if paso.proceso.es_manual() and hasattr(paso.proceso, 'instrucciones'):
+                                html_pasos += f'<div class="text-sm text-gray-600 dark:text-gray-400 italic mt-1">{paso.proceso.instrucciones}</div>'
+                            html_pasos += f'</div>'
+                        html_pasos += '</div>'
+                        pasos_lista.set_content(html_pasos)
+                        pasos_expansion.set_visibility(True)
+                    else:
+                        pasos_expansion.set_visibility(False)
                 else:
-                    receta_label.text = "(ninguna)"
+                    ESTADO_RECETA['nombre'] = "(ninguna)"  # ← CAMBIAR de receta_label.text
                     ingredientes_expansion.set_visibility(False)
+                    pasos_expansion.set_visibility(False)  # ← AGREGAR
 
                 select_receta.update()
                 ui.notify('Recetas actualizadas', type='info')
@@ -449,7 +516,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                 receta = RECETAS_DISPONIBLES.get(label)
                 if receta:
-                    receta_label.text = receta.nombre
+                    ESTADO_RECETA['nombre'] = receta.nombre
+                    
                     if getattr(receta, 'ingredientes', None):
                         html_ings = '<div class="space-y-2">'
                         for ing in receta.ingredientes:
@@ -464,10 +532,34 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ingredientes_lista.set_content(html_ings)
                         ingredientes_expansion.set_visibility(True)
                     else:
+                        ESTADO_RECETA['nombre'] = "(ninguna)"  # ← CAMBIAR de receta_label.text
                         ingredientes_expansion.set_visibility(False)
+                        pasos_expansion.set_visibility(False)  # ← AGREGAR
+                    
+                    # Mostrar pasos de la receta
+                    if getattr(receta, 'pasos', None):
+                        html_pasos = '<div class="space-y-3">'
+                        for paso in receta.pasos:
+                            tipo_badge = ('<span class="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 px-2 py-1 rounded text-xs,'
+                            'font-semibold">Manual</span>' if paso.proceso.es_manual() else '<span class="bg-green-100 text-green-700 dark:bg-green-900,'
+                            'dark:text-green-300 px-2 py-1 rounded text-xs font-semibold">Automático</span>')
+                            html_pasos += f'<div class="border-l-4 border-indigo-500 pl-4 py-2">'
+                            html_pasos += f'<div class="flex items-center gap-2 mb-1">'
+                            html_pasos += f'<span class="font-bold text-indigo-600 dark:text-indigo-400">Paso {paso.orden}:</span> {tipo_badge}'
+                            html_pasos += f'</div>'
+                            html_pasos += f'<div class="font-medium">{paso.proceso.nombre}</div>'
+                            if paso.proceso.es_manual() and hasattr(paso.proceso, 'instrucciones'):
+                                html_pasos += f'<div class="text-sm text-gray-600 dark:text-gray-400 italic mt-1">{paso.proceso.instrucciones}</div>'
+                            html_pasos += f'</div>'
+                        html_pasos += '</div>'
+                        pasos_lista.set_content(html_pasos)
+                        pasos_expansion.set_visibility(True)
+                    else:
+                        pasos_expansion.set_visibility(False)
                 else:
-                    receta_label.text = "(ninguna)"
+                    ESTADO_RECETA['nombre'] = "(ninguna)"
                     ingredientes_expansion.set_visibility(False)
+                    pasos_expansion.set_visibility(False)
 
             select_receta.on_value_change(on_cambio_receta)
 
@@ -518,10 +610,24 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     progreso_label.text = f'{prog_actual:.0f}%'
                     barra_progreso.props('color=indigo')
 
-                # Paso actual
+                # Habilitar/deshabilitar controles según estado del robot
+                robot_apagado = estado_actual == EstadoRobot.APAGADO
+                banner_apagado.set_visibility(robot_apagado)
+                select_receta.set_enabled(not robot_apagado)
+                boton_actualizar.set_enabled(not robot_apagado)
+                boton_nueva.set_enabled(not robot_apagado)
+                toggle_modo.set_enabled(not robot_apagado)
+                boton_iniciar.set_enabled(not robot_apagado)
+                boton_pausar.set_enabled(not robot_apagado)
+                boton_cancelar.set_enabled(not robot_apagado)
+
+                # Paso actual - NO tocar el nombre de receta aquí, solo gestionar pasos durante cocción
                 receta = robot.receta_actual
                 if receta:
-                    receta_label.text = receta.nombre
+                    # Solo actualizar nombre si hay cocción activa
+                    if estado_actual in (EstadoRobot.COCINANDO, EstadoRobot.PAUSADO, EstadoRobot.ESPERANDO_CONFIRMACION):
+                        ESTADO_RECETA['nombre'] = receta.nombre
+                    
                     pasos = receta.pasos
                     if pasos:
                         idx = robot.indice_paso_actual
@@ -546,7 +652,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         paso_card.set_visibility(False)
                         boton_confirmar.set_visibility(False)
                 else:
-                    receta_label.text = "(ninguna)"
                     paso_card.set_visibility(False)
                     boton_confirmar.set_visibility(False)
 
@@ -587,9 +692,9 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         
                         # Badge de tipo de ejecución
                         if proceso.es_manual():
-                            ui.badge('MANUAL', color='indigo').props('outline')
+                            ui.badge('MANUAL', color='purple').props('outline')
                         else:
-                            ui.badge('AUTOMÁTICO', color='indigo').props('outline')
+                            ui.badge('AUTOMÁTICO', color='green').props('outline')
                         
                         ui.separator()
                         
