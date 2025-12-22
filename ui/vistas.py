@@ -378,6 +378,11 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.notify('Pausando...', type='info')
 
                         def cancelar_coccion():
+                            # Validar que el robot está en un estado de cocción
+                            if robot.estado not in (EstadoRobot.COCINANDO, EstadoRobot.PAUSADO, EstadoRobot.ESPERANDO_CONFIRMACION):
+                                ui.notify('No hay cocción en curso', type='warning')
+                                return
+                            
                             robot.detener_coccion()
                             ESTADO_BARRA['completada'] = False
                             ESTADO_BARRA['ultimo_progreso'] = 0.0
@@ -389,6 +394,26 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             boton_confirmar.set_visibility(False)
                             ui.notify('Cocción cancelada', type='warning')
 
+                        # Diálogo de confirmación para cancelar
+                        with ui.dialog() as dialog_cancelar:
+                            with ui.card().classes('p-6'):
+                                ui.label('¿Cancelar cocción?').classes('text-xl font-bold mb-4')
+                                ui.label('Se perderá el progreso actual de la receta.').classes('text-orange-600 dark:text-orange-400 mb-4')
+                                
+                                with ui.row().classes('gap-2 justify-end'):
+                                    ui.button('No', on_click=dialog_cancelar.close).props('flat')
+                                    ui.button(
+                                        'Sí, cancelar',
+                                        on_click=lambda: [dialog_cancelar.close(), cancelar_coccion()]
+                                    ).props('unelevated color=red icon=stop')
+
+                        def abrir_dialogo_cancelar():
+                            # Validar estado antes de abrir el diálogo
+                            if robot.estado not in (EstadoRobot.COCINANDO, EstadoRobot.PAUSADO, EstadoRobot.ESPERANDO_CONFIRMACION):
+                                ui.notify('No hay cocción en curso', type='warning')
+                                return
+                            dialog_cancelar.open()
+
                         with ui.column().classes('gap-2 w-full'):
                             boton_iniciar = ui.button('INICIAR / REANUDAR', on_click=iniciar_coccion).props(
                                 'unelevated color=green icon=play_arrow size=lg'
@@ -396,7 +421,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             boton_pausar = ui.button('PAUSAR', on_click=pausar_coccion).props(
                                 'outline color=orange icon=pause'
                             ).classes('w-full')
-                            boton_cancelar = ui.button('CANCELAR', on_click=cancelar_coccion).props(
+                            boton_cancelar = ui.button('CANCELAR', on_click=abrir_dialogo_cancelar).props(
                                 'outline color=red icon=stop'
                             ).classes('w-full')
 
