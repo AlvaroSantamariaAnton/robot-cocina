@@ -126,6 +126,11 @@ def registrar_vistas(robot: RobotCocina) -> None:
         'ultimo_progreso': 0.0,
         'ultimo_estado': EstadoRobot.ESPERA,
     }
+    ESTADO_COMPLETADO = {
+        'mostrar': False,
+        'receta_nombre': None,
+        'receta_label': None
+    }
 
     def construir_etiquetas_recetas() -> List[str]:
         RECETAS_DISPONIBLES.clear()
@@ -158,13 +163,17 @@ def registrar_vistas(robot: RobotCocina) -> None:
             refrescar_recetas()
             switch_encendido.value = False
             ESTADO_BARRA['completada'] = False
-            ESTADO_RECETA['nombre'] = "(ninguna)"  # ← Cambiar de receta_label.text
-            pasos_expansion.set_visibility(False)  # ← AGREGAR esta línea
+            ESTADO_COMPLETADO['mostrar'] = False
+            ESTADO_COMPLETADO['receta_nombre'] = None
+            ESTADO_COMPLETADO['receta_label'] = None
+            ESTADO_RECETA['nombre'] = "(ninguna)"
+            pasos_expansion.set_visibility(False)
             ingredientes_expansion.set_visibility(False)
             pasos_expansion.set_visibility(False)
             barra_progreso.value = 0.0
             progreso_label.text = "0%"
             paso_card.set_visibility(False)
+            completado_card.set_visibility(False)
             boton_confirmar.set_visibility(False)
         
         drawer = _crear_navegacion(robot, refrescar_dashboard_completo)
@@ -245,6 +254,12 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 icon_power.classes(add='text-red-600')
 
                                 ESTADO_BARRA['completada'] = False
+                                
+                                # Resetear estado de completado
+                                ESTADO_COMPLETADO['mostrar'] = False
+                                ESTADO_COMPLETADO['receta_nombre'] = None
+                                ESTADO_COMPLETADO['receta_label'] = None
+                                completado_card.set_visibility(False)
 
                                 # Limpiar selección de receta al apagar
                                 select_receta.value = None
@@ -346,6 +361,11 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.label('Control de Cocción').classes('text-xl font-bold text-gray-800 dark:text-white')
 
                         def iniciar_coccion():
+                            # Verificar si hay una receta completada pendiente
+                            if ESTADO_COMPLETADO['mostrar']:
+                                ui.notify('Primero descarta la receta completada', type='warning')
+                                return
+                            
                             if robot.estado == EstadoRobot.APAGADO:
                                 ui.notify('Enciende el robot primero', type='warning')
                                 return
@@ -421,6 +441,12 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ESTADO_BARRA['completada'] = False
                             ESTADO_BARRA['ultimo_progreso'] = 0.0
                             ESTADO_BARRA['ultimo_estado'] = EstadoRobot.ESPERA
+                            
+                            # Resetear estado de completado
+                            ESTADO_COMPLETADO['mostrar'] = False
+                            ESTADO_COMPLETADO['receta_nombre'] = None
+                            ESTADO_COMPLETADO['receta_label'] = None
+                            completado_card.set_visibility(False)
 
                             barra_progreso.value = 0.0
                             progreso_label.text = "0%"
@@ -551,6 +577,71 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ).classes('w-full')
 
             paso_auto_card.set_visibility(False)
+
+            # ============ FILA 5: RECETA COMPLETADA ============
+            completado_card = ui.card().classes(
+                'w-full bg-gradient-to-r from-emerald-50 to-green-50 '
+                'dark:from-emerald-900/30 dark:to-green-900/30 '
+                'shadow-2xl border-4 border-emerald-400 dark:border-emerald-600 rounded-2xl'
+            )
+            with completado_card:
+                with ui.column().classes('p-8 gap-6 w-full h-full items-center justify-center text-center'):
+                    # Ícono de éxito
+                    with ui.row().classes('items-center justify-center gap-4'):
+                        ui.icon('check_circle', size='3xl').classes('text-emerald-600 dark:text-emerald-400 animate-pulse')
+                        completado_titulo = ui.label('¡Receta Completada!').classes(
+                            'text-4xl font-bold text-emerald-700 dark:text-emerald-300'
+                        )
+                        ui.icon('check_circle', size='3xl').classes('text-emerald-600 dark:text-emerald-400 animate-pulse')
+                    
+                    # Nombre de la receta completada
+                    completado_receta = ui.label(' ').classes(
+                        'text-2xl font-semibold text-gray-700 dark:text-gray-300 text-center min-h-[2.5rem]'
+                    )
+                    
+                    # Mensaje
+                    ui.label('La cocción ha finalizado exitosamente').classes(
+                        'text-lg text-gray-600 dark:text-gray-400 text-center'
+                    )
+                    
+                    # Botón para descartar
+                    def descartar_completado():
+                        # Limpiar estado de completado
+                        ESTADO_COMPLETADO['mostrar'] = False
+                        ESTADO_COMPLETADO['receta_nombre'] = None
+                        ESTADO_COMPLETADO['receta_label'] = None
+                        
+                        # Ocultar card
+                        completado_card.set_visibility(False)
+                        
+                        # Limpiar selección de receta
+                        select_receta.value = None
+                        seleccion['label_receta'] = None
+                        ULTIMA_RECETA_SELECCIONADA['label'] = None
+                        ESTADO_RECETA['nombre'] = "(ninguna)"
+                        
+                        # Ocultar expansiones
+                        ingredientes_expansion.set_visibility(False)
+                        pasos_expansion.set_visibility(False)
+                        
+                        # Resetear barra de progreso
+                        ESTADO_BARRA['completada'] = False
+                        ESTADO_BARRA['ultimo_progreso'] = 0.0
+                        barra_progreso.value = 0.0
+                        progreso_label.text = "0%"
+                        barra_progreso.props('color=indigo')
+                        
+                        # Liberar cards bloqueadas
+                        set_cards_bloqueadas(False)
+                        
+                        ui.notify('Listo para una nueva receta', type='positive')
+                    
+                    ui.button(
+                        'ENTENDIDO',
+                        on_click=descartar_completado
+                    ).props('unelevated color=green size=xl icon=thumb_up').classes('w-full max-w-md')
+            
+            completado_card.set_visibility(False)
 
             # ============ FUNCIONES DE ACTUALIZACIÓN ============
             def actualizar_paso_automatico():
@@ -725,6 +816,67 @@ def registrar_vistas(robot: RobotCocina) -> None:
             def refrescar_ui():
                 estado_actual = robot.estado
 
+                # Detectar completado de receta (ROBUSTO)
+                prog_actual = float(getattr(robot, 'progreso', 0.0) or 0.0)
+                estado_anterior = ESTADO_BARRA.get('ultimo_estado')
+
+                receta_finalizada = (
+                    estado_actual == EstadoRobot.ESPERA
+                    and robot.receta_actual is not None
+                    and not ESTADO_COMPLETADO['mostrar']
+                    and (
+                        prog_actual >= 99.9 or
+                        (
+                            estado_anterior in (
+                                EstadoRobot.COCINANDO,
+                                EstadoRobot.ESPERANDO_CONFIRMACION,
+                            )
+                            and prog_actual == 0.0
+                            and ESTADO_BARRA.get('ultimo_progreso', 0.0) > 0.0
+                        )
+                    )
+                )
+
+                if receta_finalizada:
+                    ESTADO_COMPLETADO['mostrar'] = True
+                    ESTADO_COMPLETADO['receta_nombre'] = robot.receta_actual.nombre
+                    ESTADO_COMPLETADO['receta_label'] = ULTIMA_RECETA_SELECCIONADA['label']
+                    ESTADO_BARRA['completada'] = True
+
+                    completado_receta.text = robot.receta_actual.nombre
+                    completado_card.set_visibility(True)
+
+                    paso_card.set_visibility(False)
+                    paso_auto_card.set_visibility(False)
+                
+                # Si hay una receta completada pendiente, mantener las restricciones
+                if ESTADO_COMPLETADO['mostrar']:
+                    set_cards_bloqueadas(True)
+
+                    barra_progreso.value = 1.0
+                    progreso_label.text = '100%'
+                    barra_progreso.props('color=green')
+
+                    ESTADO_RECETA['nombre'] = ESTADO_COMPLETADO['receta_nombre']
+
+                    if ESTADO_COMPLETADO['receta_label']:
+                        select_receta.value = ESTADO_COMPLETADO['receta_label']
+                        ULTIMA_RECETA_SELECCIONADA['label'] = ESTADO_COMPLETADO['receta_label']
+
+                    completado_card.set_visibility(True)
+
+                    estado_label.text = 'EN ESPERA'
+                    estado_label.classes(
+                        'text-blue-400',
+                        remove='text-gray-400 text-green-400 text-yellow-400 text-purple-400 text-red-400 animate-pulse'
+                    )
+
+                    boton_iniciar.set_enabled(False)
+                    boton_pausar.set_enabled(False)
+                    boton_cancelar.set_enabled(False)
+
+                    return
+
                 coccion_activa = estado_actual in (
                     EstadoRobot.COCINANDO,
                     EstadoRobot.PAUSADO,
@@ -750,7 +902,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 )
 
                 # Progreso
-                prog_actual = float(getattr(robot, 'progreso', 0.0) or 0.0)
                 prog_anterior = ESTADO_BARRA.get('ultimo_progreso', 0.0)
                 estado_anterior = ESTADO_BARRA.get('ultimo_estado', EstadoRobot.ESPERA)
 
@@ -917,7 +1068,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.separator()
                             ui.label('Instrucciones:').classes('text-lg font-bold')
                             ui.label(proceso.instrucciones).classes(
-                                'text-gray-700 dark:text-gray-300 ml-4 p-3 bg-indigo-50 dark:bg-gray-700 '
+                                'text-gray-700 dark:text-gray-300 p-3 bg-indigo-50 dark:bg-gray-700 '
                                 'rounded-lg whitespace-normal break-words'
                             )
                         
