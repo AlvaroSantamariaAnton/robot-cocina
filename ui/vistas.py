@@ -149,6 +149,38 @@ def registrar_vistas(robot: RobotCocina) -> None:
             etiquetas.append(label)
 
         return etiquetas
+    
+    def calcular_tiempo_estimado(receta):
+        tiempo_total_segundos = 0
+        pasos_manuales = 0
+
+        for paso in receta.pasos:
+            if paso.proceso.es_manual():
+                pasos_manuales += 1
+            else:
+                tiempo_total_segundos += paso.proceso.tiempo_segundos
+
+        if tiempo_total_segundos <= 0:
+            return None
+
+        horas = tiempo_total_segundos // 3600
+        minutos = (tiempo_total_segundos % 3600) // 60
+        segundos = tiempo_total_segundos % 60
+
+        if horas > 0:
+            tiempo_str = f"{horas}h {minutos}m"
+        elif minutos > 0:
+            tiempo_str = f"{minutos}m {segundos}s" if segundos > 0 else f"{minutos}m"
+        else:
+            tiempo_str = f"{segundos}s"
+
+        nota_manual = (
+            f" (+ {pasos_manuales} paso{'s' if pasos_manuales != 1 else ''} "
+            f"manual{'es' if pasos_manuales != 1 else ''})"
+            if pasos_manuales > 0 else ""
+        )
+
+        return f"Tiempo estimado: {tiempo_str}{nota_manual}"
 
     # ==================================================================================
     # PANEL PRINCIPAL - DASHBOARD
@@ -263,6 +295,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                                 # Limpiar selección de receta al apagar
                                 select_receta.value = None
+                                tiempo_row.set_visibility(False)
                                 seleccion['label_receta'] = None
                                 ULTIMA_RECETA_SELECCIONADA['label'] = None
                                 ESTADO_RECETA['nombre'] = "(ninguna)"
@@ -301,12 +334,32 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                 # Card Receta Actual
                 with ui.card().classes(_card_classes('shadow-xl')):
-                    with ui.column().classes('p-6 gap-3 h-full flex flex-col justify-between'):
+                    with ui.column().classes('p-6 gap-4 h-full'):
                         with ui.row().classes('items-center justify-between'):
                             ui.icon('restaurant', size='md').classes('text-indigo-600')
-                            ui.label('Receta Actual').classes('text-lg font-semibold text-gray-700 dark:text-gray-200')
-                        receta_label = ui.label().classes('text-xl font-medium text-gray-600 dark:text-gray-400')
+                            ui.label('Receta Actual').classes(
+                                'text-lg font-semibold text-gray-700 dark:text-gray-200'
+                            )
+
+                        # Nombre receta
+                        receta_label = ui.label().classes(
+                            'text-xl font-medium text-gray-600 dark:text-gray-400'
+                        )
                         receta_label.bind_text_from(ESTADO_RECETA, 'nombre')
+
+                        # Bloque tiempo estimado (se controla dinámicamente)
+                        tiempo_row = ui.row().classes(
+                            'items-center gap-2 bg-indigo-50 dark:bg-gray-700 p-3 rounded-lg'
+                        )
+                        with tiempo_row:
+                            ui.icon('schedule', size='sm').classes(
+                                'text-indigo-600 dark:text-indigo-400'
+                            )
+                            tiempo_label = ui.label().classes(
+                                'text-sm font-medium text-gray-700 dark:text-gray-300'
+                            )
+
+                        tiempo_row.set_visibility(False)
 
             # ============ FILA 2: SELECCIÓN, MODO Y CONTROL ============
             with ui.element('div').classes('grid grid-cols-1 md:grid-cols-3 gap-4 w-full'):
@@ -430,6 +483,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                             # Restablecer selección de receta
                             select_receta.value = None
+                            tiempo_row.set_visibility(False)
                             seleccion['label_receta'] = None
                             ULTIMA_RECETA_SELECCIONADA['label'] = None
                             ESTADO_RECETA['nombre'] = "(ninguna)"
@@ -616,6 +670,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         
                         # Limpiar selección de receta
                         select_receta.value = None
+                        tiempo_row.set_visibility(False)
                         seleccion['label_receta'] = None
                         ULTIMA_RECETA_SELECCIONADA['label'] = None
                         ESTADO_RECETA['nombre'] = "(ninguna)"
@@ -769,6 +824,13 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 receta = RECETAS_DISPONIBLES.get(label)
                 if receta:
                     ESTADO_RECETA['nombre'] = receta.nombre
+                    texto_tiempo = calcular_tiempo_estimado(receta)
+
+                    if texto_tiempo:
+                        tiempo_label.text = texto_tiempo
+                        tiempo_row.set_visibility(True)
+                    else:
+                        tiempo_row.set_visibility(False)
                     
                     if getattr(receta, 'ingredientes', None):
                         html_ings = '<div class="space-y-2">'
@@ -808,6 +870,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         pasos_expansion.set_visibility(False)
                 else:
                     ESTADO_RECETA['nombre'] = "(ninguna)"
+                    tiempo_row.set_visibility(False)
                     ingredientes_expansion.set_visibility(False)
                     pasos_expansion.set_visibility(False)
 
