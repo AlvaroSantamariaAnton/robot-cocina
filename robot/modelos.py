@@ -1,6 +1,7 @@
 import threading
 import time
 from typing import List, Optional, Callable, Dict, Any
+from utils.utils_tiempo import segundos_a_mmss
 
 
 # =========================
@@ -96,17 +97,20 @@ class ProcesoCocina:
         return self._tipo_ejecucion == "manual"
 
     def descripcion_resumida(self) -> str:
-        """Devuelve una descripción corta tipo: 'Picar verduras - 5s - vel 3'."""
         partes = [self._nombre]
+
         if self._tipo_ejecucion == "manual":
             partes.append("[MANUAL]")
         else:
             if self._temperatura:
                 partes.append(f"{self._temperatura}ºC")
+
             if self._tiempo_segundos:
-                partes.append(f"{self._tiempo_segundos}s")
+                partes.append(segundos_a_mmss(self._tiempo_segundos))
+
             if self._velocidad:
                 partes.append(f"vel {self._velocidad}")
+
         return " - ".join(partes)
 
     def __repr__(self) -> str:

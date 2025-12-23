@@ -1,9 +1,4 @@
 # EFDOO
-## Previo al refactor
-- Arreglar modo oscuro.
-- Procesos: formatear segundos (tiempo) a minutos
-    - Listas
-    - Crear nuevo proceso
 ## Refactor
 ```ruby
 Contexto (resumen breve — lee los ficheros citados):

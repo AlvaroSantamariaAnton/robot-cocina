@@ -9,6 +9,7 @@ from robot.modelos import (
     RecetaNoSeleccionadaError,
 )
 from robot import servicios
+from utils.utils_tiempo import mmss_a_segundos, segundos_a_mmss
 
 THEME_STATE = {'dark': False}
 
@@ -1268,7 +1269,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo', 'align': 'left'},
                             {'name': 'tipo_ej', 'label': 'Tipo de Ejecución', 'field': 'tipo_ej', 'align': 'left'},
                             {'name': 'temp', 'label': 'Temp', 'field': 'temp', 'align': 'right'},
-                            {'name': 'tiempo', 'label': 'Tiempo', 'field': 'tiempo', 'align': 'right'},
+                            {'name': 'tiempo', 'label': 'Tiempo (MM:SS)', 'field': 'tiempo', 'align': 'right'},
                             {'name': 'vel', 'label': 'Vel', 'field': 'vel', 'align': 'right'},
                         ],
                         rows=[],
@@ -1306,9 +1307,14 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         input_tipo = ui.input('Tipo (ej: Preparación, Cocción)').props('outlined dense')
                         select_tipo_ej = ui.select(['Manual', 'Automático'], label='Tipo de Ejecución', value=None).props('outlined dense')
                         input_instrucciones = ui.textarea('Instrucciones (opcional)').props('outlined').classes('col-span-2')
-                        input_temp = ui.number('Temperatura (0-120ºC)', value=0, min=0, max=120).props('outlined dense')
-                        input_tiempo = ui.number('Tiempo (s)', value=60, min=1).props('outlined dense')
-                        input_velocidad = ui.number('Velocidad (0-10)', value=0, min=0, max=10).props('outlined dense')
+                        input_temp = ui.number('Temperatura (0-120ºC)', min=0, max=120).props('outlined dense')
+                        input_tiempo = ui.input(
+                            label='Tiempo (MM:SS)',
+                            placeholder='00:00'
+                        ).props(
+                            'outlined dense mask="##:##"'
+                        ).classes('w-full')
+                        input_velocidad = ui.number('Velocidad (0-10)', min=0, max=10).props('outlined dense')
 
                     def crear_proceso():
                         # Validaciones primero (fuera del try-except)
@@ -1330,13 +1336,15 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         
                         # Crear proceso
                         try:
+                            tiempo_segundos = mmss_a_segundos(input_tiempo.value)
+
                             servicios.crear_proceso_usuario(
                                 nombre=nombre,
                                 tipo=tipo,
                                 tipo_ejecucion=tipo_ej_bd,
                                 instrucciones=instrucciones,
                                 temperatura=int(input_temp.value or 0),
-                                tiempo_segundos=int(input_tiempo.value or 0),
+                                tiempo_segundos=tiempo_segundos,
                                 velocidad=int(input_velocidad.value or 0),
                             )
 
@@ -1368,7 +1376,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo', 'align': 'left'},
                             {'name': 'tipo_ej', 'label': 'Tipo de Ejecución', 'field': 'tipo_ej', 'align': 'left'},
                             {'name': 'temp', 'label': 'Temp', 'field': 'temp', 'align': 'right'},
-                            {'name': 'tiempo', 'label': 'Tiempo', 'field': 'tiempo', 'align': 'right'},
+                            {'name': 'tiempo', 'label': 'Tiempo (MM:SS)', 'field': 'tiempo', 'align': 'right'},
                             {'name': 'vel', 'label': 'Vel', 'field': 'vel', 'align': 'right'},
                         ],
                         rows=[],
@@ -1408,7 +1416,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         'tipo': p.tipo.capitalize(),
                         'tipo_ej': 'Manual' if p.es_manual() else 'Automático',
                         'temp': f'{p.temperatura}º' if p.tipo_ejecucion == 'automatico' else '-',
-                        'tiempo': f'{p.tiempo_segundos}s' if p.tipo_ejecucion == 'automatico' else '-',
+                        'tiempo': f'{segundos_a_mmss(p.tiempo_segundos)}' if p.tipo_ejecucion == 'automatico' else '-',
                         'vel': p.velocidad if p.tipo_ejecucion == 'automatico' else '-',
                     }
                     for p in procs_base_a_mostrar
@@ -1435,7 +1443,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         'tipo': p.tipo.capitalize(),
                         'tipo_ej': 'Manual' if p.es_manual() else 'Automático',
                         'temp': f'{p.temperatura}º' if p.tipo_ejecucion == 'automatico' else '-',
-                        'tiempo': f'{p.tiempo_segundos}s' if p.tipo_ejecucion == 'automatico' else '-',
+                        'tiempo': f'{segundos_a_mmss(p.tiempo_segundos)}' if p.tipo_ejecucion == 'automatico' else '-',
                         'vel': p.velocidad if p.tipo_ejecucion == 'automatico' else '-',
                     }
                     for p in procs_user_a_mostrar
