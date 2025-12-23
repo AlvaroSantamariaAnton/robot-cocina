@@ -229,7 +229,39 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
             def on_cambio_modo(e):
                 modo['valor'] = e.value
-                ui.notify(f'Modo seleccionado: {modo["valor"]}', type='info')
+                
+                # Restringir card de receta según el modo
+                if modo['valor'] == 'Manual':
+                    # Deshabilitar card de receta en modo manual
+                    select_receta.set_enabled(False)
+                    boton_actualizar.set_enabled(False)
+                    boton_nueva.set_enabled(False)
+                    card_receta.classes(add='opacity-50 pointer-events-none')
+
+                    mensaje_modo_manual.set_visibility(True)
+                    
+                    # Limpiar selección si había algo seleccionado
+                    select_receta.value = None
+                    seleccion['label_receta'] = None
+                    ULTIMA_RECETA_SELECCIONADA['label'] = None
+                    ESTADO_RECETA['nombre'] = "(ninguna)"
+                    tiempo_row.set_visibility(False)
+                    ingredientes_expansion.set_visibility(False)
+                    pasos_expansion.set_visibility(False)
+                    
+                    ui.notify('Modo Manual: Controla el robot directamente sin recetas', type='info')
+                else:
+                    # Habilitar card de receta en modo guiado
+                    # Solo habilitar si el robot NO está apagado
+                    robot_apagado = robot.estado == EstadoRobot.APAGADO
+                    select_receta.set_enabled(not robot_apagado)
+                    boton_actualizar.set_enabled(not robot_apagado)
+                    boton_nueva.set_enabled(not robot_apagado)
+                    card_receta.classes(remove='opacity-50 pointer-events-none')
+
+                    mensaje_modo_manual.set_visibility(False)
+                    
+                    ui.notify('Modo Guiado: Selecciona una receta para cocinar', type='info')
 
             # ============ BANNER DE ADVERTENCIA - ROBOT APAGADO ============
             banner_apagado = ui.card().classes(
@@ -364,10 +396,11 @@ def registrar_vistas(robot: RobotCocina) -> None:
             # ============ FILA 2: SELECCIÓN, MODO Y CONTROL ============
             with ui.element('div').classes('grid grid-cols-1 md:grid-cols-3 gap-4 w-full'):
 
-                # Selector de receta
+                # Card Selector de receta
                 card_receta = ui.card().classes(_card_classes())
                 with card_receta:
-                    with ui.column().classes('p-6 gap-4 h-full flex flex-col justify-between'):
+                    # ⭐ Añadir position relative al contenedor principal
+                    with ui.column().classes('p-6 gap-4 h-full flex flex-col justify-between relative'):
                         with ui.row().classes('items-center justify-between'):
                             ui.icon('menu_book', size='md').classes('text-indigo-600')
                             ui.label('Seleccionar Receta').classes('text-xl font-bold text-gray-800 dark:text-white')
@@ -384,6 +417,23 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         with ui.row().classes('gap-2'):
                             boton_actualizar = ui.button('Actualizar Lista', on_click=lambda: refrescar_recetas(), color='indigo').props('outline icon=refresh')
                             boton_nueva = ui.button('Nueva Receta', on_click=lambda: ui.navigate.to('/recetas'), color='green').props('outline icon=add_circle')
+
+                        # ⭐ Mensaje superpuesto con position absolute
+                        mensaje_modo_manual = ui.card().classes(
+                            'absolute inset-0 m-4 flex items-center justify-center '
+                            'bg-amber-50/95 dark:bg-amber-900/95 backdrop-blur-sm '
+                            'border-2 border-amber-500 rounded-xl shadow-xl z-10'
+                        )
+                        with mensaje_modo_manual:
+                            with ui.column().classes('items-center gap-3 p-6 text-center'):
+                                ui.icon('info', size='xl').classes('text-amber-600 dark:text-amber-400')
+                                ui.label('Esta función no está disponible en Modo Manual').classes(
+                                    'text-lg font-bold text-amber-800 dark:text-amber-200'
+                                )
+                                ui.label('Cambia a Modo Guiado para seleccionar recetas').classes(
+                                    'text-sm text-amber-700 dark:text-amber-300'
+                                )
+                        mensaje_modo_manual.set_visibility(False)     
 
                 # Card Modo
                 card_modo = ui.card().classes(_card_classes())
@@ -414,6 +464,14 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.label('Control de Cocción').classes('text-xl font-bold text-gray-800 dark:text-white')
 
                         def iniciar_coccion():
+
+                            # ----------------------------------- ATENCION ----------------------------------------------
+                            # Verificar modo de operación
+                            if modo['valor'] == 'Manual':
+                                ui.notify('En modo manual no se usan recetas. Cambia a modo Guiado.', type='warning')
+                                return
+                            # ----------------------------------- ATENCION ----------------------------------------------
+
                             # Verificar si hay una receta completada pendiente
                             if ESTADO_COMPLETADO['mostrar']:
                                 ui.notify('Primero descarta la receta completada', type='warning')
@@ -736,19 +794,29 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
             def set_cards_bloqueadas(bloquear: bool):
                 # --- Card Selección de receta ---
-                select_receta.set_enabled(not bloquear)
-                boton_actualizar.set_enabled(not bloquear)
-                boton_nueva.set_enabled(not bloquear)
+                # Solo permitir habilitar si estamos en modo Guiado
+                if modo['valor'] == 'Guiado':
+                    select_receta.set_enabled(not bloquear)
+                    boton_actualizar.set_enabled(not bloquear)
+                    boton_nueva.set_enabled(not bloquear)
+                else:
+                    # En modo manual, siempre bloqueada
+                    select_receta.set_enabled(False)
+                    boton_actualizar.set_enabled(False)
+                    boton_nueva.set_enabled(False)
 
                 # --- Card Modo ---
                 toggle_modo.set_enabled(not bloquear)
 
                 # --- Efecto visual ---
-                if bloquear:
+                if bloquear or modo['valor'] == 'Manual':
                     card_receta.classes(add='opacity-50 pointer-events-none')
-                    card_modo.classes(add='opacity-50 pointer-events-none')
                 else:
                     card_receta.classes(remove='opacity-50 pointer-events-none')
+                    
+                if bloquear:
+                    card_modo.classes(add='opacity-50 pointer-events-none')
+                else:
                     card_modo.classes(remove='opacity-50 pointer-events-none')
 
             def refrescar_recetas():
