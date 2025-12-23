@@ -25,7 +25,7 @@ COLORS = {
 }
 
 # Estilos reutilizables (consistencia de tamaños/espaciados)
-CARD_BASE = 'bg-white dark:bg-gray-800 shadow-lg rounded-xl'
+CARD_BASE = '!bg-white dark:!bg-gray-800 shadow-lg rounded-xl'
 CARD_MIN_H = 'min-h-[170px]'
 
 def _card_classes(extra: str = '') -> str: 
@@ -35,7 +35,7 @@ def _card_classes(extra: str = '') -> str:
 def _crear_navegacion(robot: RobotCocina, refrescar_callback=None):
     """Drawer lateral de navegación moderna."""
     with ui.left_drawer(fixed=True, bordered=True).classes(
-        'bg-gradient-to-b from-indigo-50 to-white dark:from-gray-900 dark:to-gray-800 overflow-y-auto'
+        '!bg-gradient-to-b !from-indigo-50 !to-white dark:!from-gray-800 dark:!to-gray-700 overflow-y-auto'
     ) as drawer:
         drawer.classes('shadow-lg')
 
@@ -65,21 +65,21 @@ def _crear_navegacion(robot: RobotCocina, refrescar_callback=None):
             ui.separator().classes('my-4')
 
             # Toggle tema
-            with ui.row().classes('items-center gap-2 p-2 rounded bg-white dark:bg-gray-800 shadow-sm'):
-                ui.icon('light_mode').classes('text-amber-500')
+            with ui.row().classes('items-center gap-2 p-2 rounded !bg-white dark:!bg-gray-800 shadow-sm'):
+                ui.icon('light_mode').classes('text-amber-500 dark:text-amber-400')
 
                 def cambiar_tema(e):
                     THEME_STATE['dark'] = e.value
                     ui.dark_mode().value = e.value
 
                 ui.switch(value=THEME_STATE['dark'], on_change=cambiar_tema).props('dense color=indigo').tooltip('Modo Claro / Oscuro')
-                ui.icon('dark_mode').classes('text-black-600')
+                ui.icon('dark_mode').classes('text-black-600 dark:text-white')
 
             ui.separator().classes('my-4')
 
             # Zona de Ajustes en el drawer
             with ui.expansion('Ajustes', icon='settings').classes(
-                'w-full rounded-xl bg-white dark:bg-gray-800 shadow-sm'
+                'w-full rounded-xl !bg-white dark:!bg-gray-800 shadow-sm'
             ) as peligro_expansion:
                 peligro_expansion.set_value(False)
                 
@@ -99,7 +99,7 @@ def _crear_navegacion(robot: RobotCocina, refrescar_callback=None):
                         with ui.card().classes('p-6'):
                             ui.label('¿Confirmar reinicio de fábrica?').classes('text-xl font-bold mb-4')
                             ui.label('Esta acción eliminará todas las recetas y procesos de usuario.').classes(
-                                'text-red-600 mb-4'
+                                'text-red-600 dark:text-red-400 mb-4'
                             )
                             with ui.row().classes('gap-2'):
                                 ui.button('Cancelar', on_click=dialog_reset.close).props('flat')
@@ -211,14 +211,14 @@ def registrar_vistas(robot: RobotCocina) -> None:
         drawer = _crear_navegacion(robot, refrescar_dashboard_completo)
 
         # Header
-        with ui.header().classes('bg-white dark:bg-gray-900 shadow-sm'):
+        with ui.header().classes('!bg-white dark:!bg-gray-900 shadow-sm'):
             with ui.row().classes('w-full items-center justify-between px-6 py-3'):
                 with ui.row().classes('items-center gap-3'):
                     ui.button(icon='menu', on_click=lambda: drawer.toggle()).props('flat dense round')
                     ui.label('Panel de Control').classes('text-2xl font-bold text-gray-800 dark:text-white')
 
                 with ui.row().classes('items-center gap-2'):
-                    ui.icon('circle', size='xs').classes('text-green-500 animate-pulse')
+                    ui.icon('circle', size='xs').classes('text-green-500 dark:text-green-400 animate-pulse')
                     ui.label('Sistema activo').classes('text-sm text-gray-600 dark:text-gray-400')
 
         # Contenedor principal
@@ -345,21 +345,21 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             refrescar_ui()
 
                         with ui.row().classes('items-center gap-3'):
-                            ui.label('O').classes('text-xs text-gray-600 select-none')
+                            ui.label('O').classes('text-xs text-gray-600 dark:text-gray-400 select-none')
                             switch_encendido = ui.switch(
                                 value=(robot.estado != EstadoRobot.APAGADO),
                                 on_change=cambiar_encendido
                             ).props('color=green').tooltip('O = Apagado · I = Encendido')
-                            ui.label('I').classes('text-xs text-gray-600 select-none')
+                            ui.label('I').classes('text-xs text-gray-600 dark:text-gray-400 select-none')
 
                 # Card Progreso
                 with ui.card().classes(_card_classes('shadow-xl')):
                     with ui.column().classes('p-6 gap-3 h-full flex flex-col justify-between'):
                         with ui.row().classes('items-center justify-between'):
-                            ui.icon('schedule', size='md').classes('text-indigo-600')
+                            ui.icon('schedule', size='md').classes('text-indigo-600 dark:text-indigo-400')
                             ui.label('Progreso de Cocción').classes('text-xl font-bold text-gray-800 dark:text-white')
 
-                        progreso_label = ui.label('0%').classes('text-3xl font-bold text-indigo-500 dark:text-blue-400')
+                        progreso_label = ui.label('0%').classes('text-3xl font-bold text-indigo-500 dark:text-indigo-400')
                         barra_progreso = ui.linear_progress(value=0.0, show_value=False, size='lg').props(
                             'rounded stripe animated color=indigo'
                         ).classes('w-full')
@@ -368,7 +368,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 with ui.card().classes(_card_classes('shadow-xl')):
                     with ui.column().classes('p-6 gap-4 h-full'):
                         with ui.row().classes('items-center justify-between'):
-                            ui.icon('restaurant', size='md').classes('text-indigo-600')
+                            ui.icon('restaurant', size='md').classes('text-indigo-600 dark:text-indigo-400')
                             ui.label('Receta Actual').classes(
                                 'text-lg font-semibold text-gray-700 dark:text-gray-200'
                             )
@@ -402,7 +402,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     # ⭐ Añadir position relative al contenedor principal
                     with ui.column().classes('p-6 gap-4 h-full flex flex-col justify-between relative'):
                         with ui.row().classes('items-center justify-between'):
-                            ui.icon('menu_book', size='md').classes('text-indigo-600')
+                            ui.icon('menu_book', size='md').classes('text-indigo-600 dark:text-indigo-400')
                             ui.label('Seleccionar Receta').classes('text-xl font-bold text-gray-800 dark:text-white')
 
                         seleccion = {'label_receta': None}
@@ -440,7 +440,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 with card_modo:
                     with ui.column().classes('p-6 gap-4 h-full flex flex-col justify-between'):
                         with ui.row().classes('items-center justify-between'):
-                            ui.icon('tune', size='md').classes('text-indigo-600')
+                            ui.icon('tune', size='md').classes('text-indigo-600 dark:text-indigo-400')
                             ui.label('Modo de Operación').classes('text-xl font-bold text-gray-800 dark:text-white')
 
                         with ui.column().classes('gap-2 text-sm text-gray-600 dark:text-gray-400'):
@@ -460,7 +460,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 with ui.card().classes(_card_classes()):
                     with ui.column().classes('p-6 gap-4 h-full flex flex-col justify-between'):
                         with ui.row().classes('items-center justify-between'):
-                            ui.icon('touch_app', size='md').classes('text-indigo-600')
+                            ui.icon('touch_app', size='md').classes('text-indigo-600 dark:text-indigo-400')
                             ui.label('Control de Cocción').classes('text-xl font-bold text-gray-800 dark:text-white')
 
                         def iniciar_coccion():
@@ -608,7 +608,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
             ingredientes_expansion = ui.expansion(
                 'Ingredientes Necesarios',
                 icon='shopping_cart'
-            ).classes('w-full rounded-xl bg-white dark:bg-gray-800 shadow-lg')
+            ).classes('w-full rounded-xl !bg-white dark:!bg-gray-800 shadow-lg')
 
             with ingredientes_expansion:
                 with ui.column().classes('p-4 gap-2'):
@@ -620,7 +620,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
             pasos_expansion = ui.expansion(
                 'Pasos de la Receta',
                 icon='list'
-            ).classes('w-full rounded-xl bg-white dark:bg-gray-800 shadow-lg')
+            ).classes('w-full rounded-xl !bg-white dark:!bg-gray-800 shadow-lg')
 
             with pasos_expansion:
                 with ui.column().classes('gap-2'):
@@ -630,13 +630,15 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
             # ============ FILA 4: PASO ACTUAL ============
             paso_card = ui.card().classes(
-                'w-full bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-800 dark:to-gray-900 '
-                'shadow-xl border-2 border-purple-300 dark:border-purple-700 rounded-xl'
+                'w-full !bg-gradient-to-r !from-purple-50 !to-pink-50 '
+                'dark:!from-gray-800 dark:!to-gray-900 '
+                'shadow-xl !border-2 !border-purple-300 dark:!border-purple-700 rounded-xl'
             )
+
             with paso_card:
                 with ui.column().classes('p-6 gap-4'):
                     with ui.row().classes('items-center gap-3'):
-                        ui.icon('list', size='lg').classes('text-purple-600')
+                        ui.icon('list', size='lg').classes('text-purple-600 dark:text-purple-400')
                         paso_label = ui.label('Paso Actual').classes('text-2xl font-bold text-gray-800 dark:text-white')
 
                     instrucciones_label = ui.label('').classes('text-lg text-gray-700 dark:text-gray-300')
@@ -666,7 +668,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                     # 🔹 Título: Paso X/Y: Nombre
                     with ui.row().classes('items-center gap-3'):
-                        ui.icon('list', size='lg').classes('text-green-600')
+                        ui.icon('list', size='lg').classes('text-green-600 dark:text-green-400')
                         paso_auto_titulo = ui.label(
                             'Paso 1/1: -'
                         ).classes('text-2xl font-bold text-gray-800 dark:text-white')
@@ -848,7 +850,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             nota = f' <span class="text-gray-500">({ing["nota"]})</span>' if ing.get('nota') else ''
                             html_ings += (
                                 f'<div class="flex items-center gap-2">'
-                                f'<span class="text-indigo-600">•</span>'
+                                f'<span class="text-indigo-600 dark:text-indigo-400">•</span>'
                                 f'<b>{ing["nombre"]}</b>: {ing["cantidad"]} {ing["unidad"]}{nota}'
                                 f'</div>'
                             )
@@ -906,7 +908,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             nota = f' <span class="text-gray-500">({ing["nota"]})</span>' if ing.get('nota') else ''
                             html_ings += (
                                 f'<div class="flex items-center gap-2">'
-                                f'<span class="text-indigo-600">•</span>'
+                                f'<span class="text-indigo-600 dark:text-indigo-400">•</span>'
                                 f'<b>{ing["nombre"]}</b>: {ing["cantidad"]} {ing["unidad"]}{nota}'
                                 f'</div>'
                             )
@@ -1142,10 +1144,15 @@ def registrar_vistas(robot: RobotCocina) -> None:
         
         drawer = _crear_navegacion(robot, refrescar_procesos_completo)
 
-        with ui.header().classes('bg-white dark:bg-gray-900 shadow-sm'):
-            with ui.row().classes('w-full items-center gap-3 px-6 py-3'):
-                ui.button(icon='menu', on_click=lambda: drawer.toggle()).props('flat dense round')
-                ui.label('Gestión de Procesos').classes('text-2xl font-bold text-gray-800 dark:text-white')
+        with ui.header().classes('!bg-white dark:!bg-gray-900 shadow-sm'):
+            with ui.row().classes('w-full items-center justify-between px-6 py-3'):
+                with ui.row().classes('items-center gap-3'):
+                    ui.button(icon='menu', on_click=lambda: drawer.toggle()).props('flat dense round')
+                    ui.label('Gestión de Procesos').classes('text-2xl font-bold text-gray-800 dark:text-white')
+                
+                with ui.row().classes('items-center gap-2'):
+                    ui.icon('circle', size='xs').classes('text-green-500 dark:text-green-400 animate-pulse')
+                    ui.label('Sistema activo').classes('text-sm text-gray-600 dark:text-gray-400')
 
         with ui.column().classes('p-6 max-w-7xl mx-auto gap-6'):
 
@@ -1167,12 +1174,12 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         # Información general
                         with ui.column().classes('gap-2'):
                             with ui.row().classes('items-center gap-2'):
-                                ui.icon('category', size='sm').classes('text-indigo-600')
+                                ui.icon('category', size='sm').classes('text-indigo-600 dark:text-indigo-400')
                                 ui.label('Tipo:').classes('font-semibold')
                                 ui.label(proceso.tipo.capitalize()).classes('text-gray-600 dark:text-gray-400')
                             
                             with ui.row().classes('items-center gap-2'):
-                                ui.icon('source', size='sm').classes('text-indigo-600')
+                                ui.icon('source', size='sm').classes('text-indigo-600 dark:text-indigo-400')
                                 ui.label('Origen:').classes('font-semibold')
                                 origen_texto = 'Fábrica' if proceso.origen == 'base' else 'Usuario'
                                 ui.label(origen_texto).classes('text-gray-600 dark:text-gray-400')
@@ -1183,15 +1190,15 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.label('Parámetros:').classes('text-lg font-bold')
                             with ui.column().classes('gap-2 ml-4'):
                                 with ui.row().classes('items-center gap-2'):
-                                    ui.icon('thermostat', size='sm').classes('text-red-500')
+                                    ui.icon('thermostat', size='sm').classes('text-red-500 dark:text-red-400')
                                     ui.label(f'Temperatura: {proceso.temperatura}°C')
                                 
                                 with ui.row().classes('items-center gap-2'):
-                                    ui.icon('schedule', size='sm').classes('text-blue-500')
+                                    ui.icon('schedule', size='sm').classes('text-blue-500 dark:text-blue-400')
                                     ui.label(f'Tiempo: {proceso.tiempo_segundos}s')
                                 
                                 with ui.row().classes('items-center gap-2'):
-                                    ui.icon('speed', size='sm').classes('text-green-500')
+                                    ui.icon('speed', size='sm').classes('text-green-500 dark:text-green-400')
                                     ui.label(f'Velocidad: {proceso.velocidad}')
                         
                         # Instrucciones (si existen)
@@ -1244,8 +1251,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
             with ui.card().classes('w-full shadow-xl'):
                 with ui.column().classes('w-full p-6 gap-4'):
                     with ui.row().classes('items-center justify-between'):
-                        ui.icon('factory', size='lg').classes('text-indigo-600')
-                        ui.label('Procesos de Fábrica').classes('text-2xl font-bold')
+                        ui.icon('factory', size='lg').classes('text-indigo-600 dark:text-indigo-400')
+                        ui.label('Procesos de Fábrica').classes('text-2xl font-bold text-gray-800 dark:text-white')
                     ui.label('Procesos predefinidos del sistema (no editables). Haz clic en una fila para ver detalles.').classes('text-gray-600 dark:text-gray-400')
 
                     procesos_base_map = {}
@@ -1285,8 +1292,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
             with ui.card().classes('w-full shadow-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900'):
                 with ui.column().classes('w-full p-6 gap-4'):
                     with ui.row().classes('items-center gap-2'):
-                        ui.icon('add_box', size='lg').classes('text-blue-600')
-                        ui.label('Crear Nuevo Proceso').classes('text-2xl font-bold')
+                        ui.icon('add_box', size='lg').classes('text-blue-600 dark:text-blue-400')
+                        ui.label('Crear Nuevo Proceso').classes('text-2xl font-bold text-gray-800 dark:text-white')
 
                     with ui.grid(columns=2).classes('w-full gap-4'):
                         input_nombre = ui.input('Nombre').props('outlined dense').classes('col-span-2')
@@ -1343,7 +1350,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
             with ui.card().classes('w-full shadow-xl'):
                 with ui.column().classes('w-full p-6 gap-4'):
                     with ui.row().classes('items-center justify-between'):
-                        ui.icon('precision_manufacturing', size='lg').classes('text-indigo-600')
+                        ui.icon('precision_manufacturing', size='lg').classes('text-indigo-600 dark:text-indigo-400')
                         ui.label('Mis Procesos').classes('text-2xl font-bold')
                         
                     ui.label('Procesos creados por ti. Haz clic en una fila para ver detalles.').classes('text-gray-600 dark:text-gray-400')
@@ -1456,32 +1463,37 @@ def registrar_vistas(robot: RobotCocina) -> None:
         
         drawer = _crear_navegacion(robot, refrescar_recetas_completo)
 
-        with ui.header().classes('bg-white dark:bg-gray-900 shadow-sm'):
-            with ui.row().classes('w-full items-center gap-3 px-6 py-3'):
-                ui.button(icon='menu', on_click=lambda: drawer.toggle()).props('flat dense round')
-                ui.label('Gestión de Recetas').classes('text-2xl font-bold text-gray-800 dark:text-white')
+        with ui.header().classes('!bg-white dark:!bg-gray-900 shadow-sm'):
+            with ui.row().classes('w-full items-center justify-between px-6 py-3'):
+                with ui.row().classes('items-center gap-3'):
+                    ui.button(icon='menu', on_click=lambda: drawer.toggle()).props('flat dense round')
+                    ui.label('Gestión de Recetas').classes('text-2xl font-bold text-gray-800 dark:text-white')
+                
+                with ui.row().classes('items-center gap-2'):
+                    ui.icon('circle', size='xs').classes('text-green-500 dark:text-green-400 animate-pulse')
+                    ui.label('Sistema activo').classes('text-sm text-gray-600 dark:text-gray-400')
 
         with ui.column().classes('p-6 max-w-7xl mx-auto gap-6'):
 
             with ui.card().classes('w-full shadow-xl'):
                 with ui.column().classes('w-full p-6 gap-4'):
                     with ui.row().classes('items-center justify-between'):
-                        ui.icon('factory', size='lg').classes('text-indigo-600')
-                        ui.label('Recetas de Fábrica').classes('text-2xl font-bold')
+                        ui.icon('factory', size='lg').classes('text-indigo-600 dark:text-indigo-400')
+                        ui.label('Recetas de Fábrica').classes('text-2xl font-bold text-gray-800 dark:text-white')
 
                     recetas_base_grid = ui.row().classes('w-full gap-4 flex-wrap')
 
             with ui.card().classes('w-full shadow-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900'):
                 with ui.column().classes('w-full p-6 gap-4'):
                     with ui.row().classes('items-center gap-2'):
-                        ui.icon('add_box', size='lg').classes('text-blue-600')
+                        ui.icon('add_box', size='lg').classes('text-blue-600 dark:text-blue-400')
                         ui.label('Crear Nueva Receta').classes('text-2xl font-bold')
 
                     input_nombre_receta = ui.input('Nombre de la receta').props('outlined dense').classes('w-full')
                     input_desc_receta = ui.textarea('Descripción').props('outlined').classes('w-full')
 
                     with ui.row().classes('items-center justify-between'):
-                        ui.icon('shopping_cart', size='md').classes('text-blue-500')
+                        ui.icon('shopping_cart', size='md').classes('text-blue-500 dark:text-blue-400')
                         ui.label('Ingredientes').classes('text-xl font-bold')
                     ingredientes_temp = []
 
@@ -1550,7 +1562,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ing_nota.value = ''
 
                     with ui.row().classes('items-center justify-between'):
-                        ui.icon('list', size='md').classes('text-blue-600')
+                        ui.icon('list', size='md').classes('text-blue-600 dark:text-blue-400')
                         ui.label('Pasos').classes('text-xl font-bold')
                     pasos_temp = []
                     procesos_map = {}
@@ -1659,7 +1671,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
             with ui.card().classes('w-full shadow-xl'):
                 with ui.column().classes('w-full p-6 gap-4'):
                     with ui.row().classes('items-center gap-2'):
-                        ui.icon('menu_book', size='lg').classes('text-indigo-600')
+                        ui.icon('menu_book', size='lg').classes('text-indigo-600 dark:text-indigo-400')
                         ui.label('Mis Recetas').classes('text-2xl font-bold')
 
                     recetas_user_grid = ui.row().classes('w-full gap-4 flex-wrap')
@@ -1668,7 +1680,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 with ui.dialog() as dlg, ui.card().classes('max-w-2xl overflow-x-hidden').props('lang=es'):
                     with ui.column().classes('p-6 gap-4'):
                         ui.label(receta.nombre).classes('text-3xl font-bold whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
-                        ui.label(receta.descripcion).classes('text-gray-600 whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
+                        ui.label(receta.descripcion).classes('text-gray-600 dark:text-gray-400 whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
 
                         # Calcular tiempo estimado
                         tiempo_total_segundos = 0
@@ -1701,20 +1713,20 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                         if receta.ingredientes:
                             with ui.row().classes('items-center justify-between'):
-                                ui.icon('shopping_cart', size='md').classes('text-blue-500')
+                                ui.icon('shopping_cart', size='md').classes('text-blue-500 dark:text-blue-400')
                                 ui.label('Ingredientes:').classes('text-xl font-bold')
                             for ing in receta.ingredientes:
                                 nota = f" ({ing['nota']})" if ing.get('nota') else ""
                                 ui.label(f"• {ing['nombre']}: {ing['cantidad']} {ing['unidad']}{nota}").classes('ml-4 whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
 
                         with ui.row().classes('items-center justify-between'): 
-                            ui.icon('list', size='md').classes('text-blue-600')
+                            ui.icon('list', size='md').classes('text-blue-600 dark:text-blue-400')
                             ui.label('Pasos:').classes('text-xl font-bold')
                         for paso in receta.pasos:
                             tipo_emoji = '(Manual)' if paso.proceso.es_manual() else '(Automático)'
                             ui.label(f"{paso.orden}. {tipo_emoji} {paso.proceso.nombre}").classes('ml-4 font-medium')
                             if paso.proceso.es_manual():
-                                ui.label(paso.proceso.instrucciones).classes('ml-8 text-sm text-gray-600 italic whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
+                                ui.label(paso.proceso.instrucciones).classes('ml-8 text-sm text-gray-600 dark:text-gray-400 italic whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
 
                         with ui.row().classes('w-full justify-between mt-6'):
                             ui.button('Cerrar', on_click=dlg.close).props('flat')
@@ -1778,16 +1790,18 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     with recetas_base_grid:
                         with ui.card().classes(
                             'w-64 h-56 overflow-hidden cursor-pointer '
-                            'hover:shadow-2xl transition-shadow'
+                            '!bg-white dark:!bg-gray-800 '
+                            '!border !border-gray-200 dark:!border-gray-700 '
+                            'hover:shadow-2xl transition-shadow '
                         ).on('click', lambda r=rec: mostrar_detalle_receta(r)):
 
                             with ui.column().classes('p-4 gap-2'):
-                                ui.icon('restaurant', size='xl').classes('text-indigo-600')
+                                ui.icon('restaurant', size='xl').classes('text-indigo-600 dark:text-indigo-400')
                                 ui.label(rec.nombre).classes(
                                     'font-bold text-lg line-clamp-2 break-words'
                                 )
                                 ui.label(rec.descripcion or '').classes(
-                                    'text-sm text-gray-600 line-clamp-2 break-words'
+                                    'text-sm text-gray-500 line-clamp-2 break-words'
                                 )
                                 ui.badge(f'{len(rec.pasos)} pasos', color='indigo')
 
@@ -1797,17 +1811,19 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     with recetas_user_grid:
                         with ui.card().classes(
                             'w-64 h-56 overflow-hidden cursor-pointer '
-                            'hover:shadow-2xl transition-shadow'
+                            '!bg-white dark:!bg-gray-800 '
+                            '!border !border-gray-200 dark:!border-gray-700 '
+                            'hover:shadow-2xl transition-shadow '
                         ).on('click', lambda r=rec: mostrar_detalle_receta(r)):
 
                             with ui.column().classes('p-4 gap-2'):
-                                ui.icon('restaurant', size='xl').classes('text-indigo-600')
+                                ui.icon('restaurant', size='xl').classes('text-indigo-600 dark:text-indigo-400')
                                 ui.label(rec.nombre).classes(
                                     'font-bold text-lg line-clamp-2 break-words'
                                 )
                                 ui.label(rec.descripcion or 'Sin descripción').classes(
-                                    'text-sm text-gray-600 line-clamp-2 break-words'
+                                    'text-sm text-gray-500 line-clamp-2 break-words'
                                 )
-                                ui.badge(f'{len(rec.pasos)} pasos', color='pink')
+                                ui.badge(f'{len(rec.pasos)} pasos', color='indigo')
 
             refrescar_recetas()
