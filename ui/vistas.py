@@ -1202,7 +1202,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 
                                 with ui.row().classes('items-center gap-2'):
                                     ui.icon('schedule', size='sm').classes('text-blue-500 dark:text-blue-400')
-                                    ui.label(f'Tiempo: {proceso.tiempo_segundos}s')
+                                    ui.label(f'Tiempo: {segundos_a_mmss(proceso.tiempo_segundos)}')
                                 
                                 with ui.row().classes('items-center gap-2'):
                                     ui.icon('speed', size='sm').classes('text-green-500 dark:text-green-400')
