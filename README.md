@@ -1,30 +1,287 @@
+# EFDOO
+## Previo al refactor
 - Arreglar modo oscuro.
-- Implementar card con controles manuales (Temperatura, tiempo y velocidad) para modo manual, un deslizable o ruleta o lo que mejor convenga para cada uno.
-    - Tener en cuenta y eliminar la restriccion actual "En modo manual no se usan recetas. Cambia a modo Guiado.".
-    - Reutilizar card de control de coccion para Iniciar / Pausar / Cancelar.
-    - Los controles se pueden ajustar en cualquier momento (aumentar/disminuir temperatura, velocidad o tiempo).
-    - El control del tiempo consiste en un símil al temporizador de un microondas, con el boton de la card de los controles manuales subes el tiempo (durante dicho tiempo estára cocinando), para que comience a cocinar le das al Inicar (botón de la card de control de coccón), si se acaba el tiempo el robot vuelve a "en espera", pudiendo volver a iniciarlo.
-    - Mientras está cocinando y bajando segundos del temporizador, se puede dar a Pausar (pausará el temporizador hasta que se le de al boton de Iniciar/Reanudar) o se puede dar a Cancelar (lo que pondrá los controles manuales a 0 y dejará el robot "en espera").
-    - Como ya dije antes, si quedan por ejemplo, 2 minutos en el temporizador, se puede aumentar a 5 min por ejemplo, pero sin botones ni cosas ortopédicas, como se hace en los microondas o thermomix convencionales, simplemente moviendo (subiendo y bajando) el control el tiempo cambia instantáneamente, de modo que puedes aumentar o disminuir el tiempo restante inmediatamente.
-    - Máximos y mínimos de los controles
-        - Temperatura: min 0, max 120
-        - Velocidad: min 0, max 10
-        - Tiempo: no hay minimo como tal en este modo (obviamnete el minimo para que empiece a funcionar es 1 segundo), max 90 min
-    - En los controles manuales aparecerá el valor actual de Temperatura, velocidad y tiempo.
-    - El control del tiempo aumenta por segundos antes de llegar al minuto (5-10-15-...-60s) y por minutos pasado el minuto (1-2-3-4-5-...-90min), intentando que la ruleta no se haga muy larga por si alguien quiere moner muchos minutos.
-    - Cocción persiste aunque cambies de página.
-    - Si se apaga el robot repentinamente, da igual el estado o momento, todo se apagara y se refrescará siguiendo la lógica existente.
-- Sección crear nuevo proceso
-    - En modo Manual seleccionado, bloquear visualmente los contenedores de Tiempo, Temperatura y Velocidad, que se muestren '-'
-    - Al seleccionar modo automático de nuevo, desbloquear contenedores y restablecer a valores por defecto
-    - Mantener máximos y mínimos
-    - Agregar máximo de 90 minutos o 5400 segundos al campo del tiempo.
-    - Por defecto, ningun modo seleccionado
 - Procesos: formatear segundos (tiempo) a minutos
     - Listas
     - Crear nuevo proceso
-- No me convence el sistema actual de procesos
-    - Los procesos de fábrica me da igual que sean generales
-    - La manera de registrar procesos de usuario no me convence si lo pensamos como algo que se va a usar
-        - Si el tiempo de triturado y velocidad es distinto en cada receta (suponiendo que el usuario quiera crear muchas recetas), implicaría crear un proceso nuevo cada vez, hasta que punto esto es realista? tampoco veo otra solucion.
-        - Si en una receta tengo que echar mantequilla en varias partes (al principio 15g, más tarde otros 20g y más adelante otros 10g), necsito crear 3 procesos nuevos para una sola receta, por no hablar de como diferenciarlas, meto la cantidad en el nombre? porque si lo meto en las instrucciones no se diferencian desde la lista a no ser que cliques en cada uno para comprobarlo.
+## Refactor
+```ruby
+Contexto (resumen breve — lee los ficheros citados):
+- El sistema actual modela un `ProcesoCocina` que incluye *nombre, tipo, tipo_ejecución, instrucciones* **y** parámetros de ejecución (temperatura, tiempo_segundos, velocidad). Eso provoca duplicación: cambiar un parámetro obliga a crear un nuevo proceso. (Ver código actual en servicios.py y init_db.py). :contentReference[oaicite:0]{index=0} :contentReference[oaicite:1]{index=1}
+- El UI para crear procesos y recetas transmite esos parámetros como si formaran parte del proceso. En la pantalla de creación de recetas los pasos se guardan como (orden, id_proceso) sin parámetros propios. (Vistas de creación y guardado de recetas). :contentReference[oaicite:2]{index=2} :contentReference[oaicite:3]{index=3}
+- El hilo de ejecución del robot usa `proceso.tiempo_segundos` para determinar la duración de cada paso. Esto obliga a que el tiempo esté en el proceso y no en el paso. (Modelos / ejecución). :contentReference[oaicite:4]{index=4}
+
+Objetivo (qué debe lograrse):
+- Rediseñar mínimamente el sistema para **separar la plantilla de acción (Proceso)** de la **instancia ejecutable (PasoReceta)**.
+- Los *procesos* (tanto base como usuario) deben contener únicamente: `id, nombre, tipo, tipo_ejecucion, descripcion/instrucciones` (texto descriptivo, opcional). **No deben contener** los campos `temperatura`, `tiempo_segundos` ni `velocidad`.
+- Los *pasos* (tablas pasos_receta_base y pasos_receta_usuario) deben contener los parámetros de ejecución cuando correspondan (para pasos automáticos: `tiempo_segundos`, `velocidad`, `temperatura`; para manuales: `instrucciones_texto` libre).
+- Mantener la UI visual lo más parecido posible: en el panel de control y dashboard no cambian apariencia, solo la fuente de los datos (ahora de `paso` en lugar de `proceso`).
+- Implementación por fases, no todo de golpe. Mantener compatibilidad durante la migración y proporcionar un plan de rollback.
+
+Requisitos concretos (lo que espero que implementes y entregues):
+1. **Migración DB no destructiva (fase 0)**  
+   - Añadir columnas nuevas en ambas tablas `pasos_receta_base` y `pasos_receta_usuario`:
+     - `temperatura INTEGER DEFAULT NULL`
+     - `tiempo_segundos INTEGER DEFAULT NULL`
+     - `velocidad INTEGER DEFAULT NULL`
+     - `instrucciones TEXT DEFAULT NULL` (texto libre que se mostrará en pasos manuales)
+   - Backfill: para recetas de fábrica (y cualquier paso existente) copiar valores de `procesos_base`/`procesos_usuario` hacia las nuevas columnas de `pasos_*` para mantener el comportamiento actual:
+     - `UPDATE pasos_receta_base SET tiempo_segundos = (SELECT tiempo_segundos FROM procesos_base WHERE procesos_base.id = pasos_receta_base.id_proceso), ...`
+     - Para pasos manuales: copiar `instrucciones` desde `procesos_base.instrucciones` → `pasos_receta_base.instrucciones`.
+   - No borrar columnas de `procesos_*` aún (hacerlo sólo en fase de limpieza).
+
+2. **Cambios en modelos (fase 1)**  
+   - Modificar la clase `PasoReceta` para que contenga además de `orden` y `proceso` los parámetros:
+     - `tiempo_segundos: Optional[int]`
+     - `temperatura: Optional[int]`
+     - `velocidad: Optional[int]`
+     - `instrucciones: Optional[str]`  (texto libre para pasos manuales)
+   - Mantener `ProcesoCocina` pero admitir que `proceso.temperatura/tiempo/velocidad` puedan existir por retrocompatibilidad; **la ejecución debe preferir `paso.*` si está presente**.
+
+3. **Servicios / persistencia (fase 1-2)**  
+   - Actualizar la capa `servicios.py`:
+     - `_cargar_recetas_generico` debe leer las columnas nuevas desde `pasos_*` y construir `PasoReceta(orden, proceso, tiempo_segundos=..., temperatura=..., velocidad=..., instrucciones=...)`. Actualmente lee parámetros desde `pr_user`/`pr_base`; cambia eso. (Ver cómo actualmente extrae procesos y pasos). :contentReference[oaicite:5]{index=5}
+     - `crear_receta_usuario` debe aceptar y persistir pasos enriquecidos: cada paso será algo como `(orden, id_proceso, tiempo_segundos, temperatura, velocidad, instrucciones)` en lugar de solo `(orden, id_proceso)`. Ajustar la inserción en `pasos_receta_usuario`.
+     - `crear_proceso_usuario` debe eliminar los parámetros tiempo/temp/vel del INSERT (ahora se almacenan en pasos). Cambiar la firma para no requerirlos. (Actualmente acepta esos parámetros). :contentReference[oaicite:6]{index=6}
+   - Mantener funciones legacy (sobrecargas o compatibilidad) si conviene, pero preferir la nueva API.
+
+4. **UI — vistas.py (fase 2)**  
+   - Página crear/editar proceso:
+     - Quitar inputs de `Temperatura`, `Tiempo`, `Velocidad` del formulario de creación de procesos (quedarán solo `nombre`, `tipo`, `tipo_ejecucion`, `instrucciones` opcional). (Ver el formulario actual). :contentReference[oaicite:7]{index=7}
+   - Página crear/editar receta:
+     - Al añadir un paso: si el `proceso.tipo_ejecucion` es **Automático**, mostrar inputs `tiempo_segundos`, `temperatura`, `velocidad` (validados como ahora). Si es **Manual**, mostrar un textarea de `instrucciones` libre (texto plano, no estructurado). Incluir esos valores al guardar la receta. (Ver cómo se construyen `pasos_temp` y el guardado actual). :contentReference[oaicite:8]{index=8}
+   - Vista de lista y detalle de procesos:
+     - Mostrar solo `nombre`, `tipo` y `tipo_ejecucion` en la tabla principal (sin columnas temp/tiempo/vel). En el detalle (dialog) puedes mostrar `instrucciones` si existen. (Actualmente se muestran parámetros; quitar eso para procesos base/usuario). :contentReference[oaicite:9]{index=9}
+   - Dashboard / ejecución:
+     - Cuando el robot muestra el paso actual o calcula tiempo estimado, usar el `paso.tiempo_segundos` (o `paso` parameters) en lugar de `proceso.tiempo_segundos`. Ajustar `calcular_tiempo_estimado` y la lógica que actualiza la barra de progreso. (Ver la función de cálculo y el hilo de ejecución en modelos). :contentReference[oaicite:10]{index=10} :contentReference[oaicite:11]{index=11}
+
+5. **Ejecución del robot (fase 2)**  
+   - Modificar `_ejecutar_receta_en_hilo` para:
+     - Determinar `duracion` como `duracion = max(1, paso.tiempo_segundos if paso.tiempo_segundos is not None else paso.proceso.tiempo_segundos)`
+     - Para pasos manuales, mostrar `paso.instrucciones` en UI. Para automáticos, aplicar `paso.velocidad` y `paso.temperatura` si están presentes.
+   - Asegurar que pausar/reanudar y progreso funcionan igual (solo se cambió la fuente de los parámetros).
+
+6. **Migración de datos y limpieza final (fase 3)**  
+   - Una vez validado todo (UI, ejecución, servicios) y tras tests, proceder a eliminar columnas `temperatura`, `tiempo_segundos`, `velocidad` de `procesos_base` y `procesos_usuario`:
+     - En SQLite lo más seguro es recrear tablas nuevas sin esas columnas y copiar los campos que queden. Proponer script SQL que recree `procesos_base_new` y copie `id,nombre,tipo,tipo_ejecucion,instrucciones` y luego rename/drop.
+   - Actualizar `init_db.py` para que en la inserción de recetas de fábrica coloque explícitamente valores en las filas de `pasos_receta_base` (ya no en `procesos_base`). (Actualmente `init_db.py` inserta procesos con parámetros). :contentReference[oaicite:12]{index=12}
+
+Entregables por fase (qué debe devolver Claude en cada fase):
+
+Fase 0 (migración no destructiva):
+- Script SQL `migrations/001_add_step_params.sql` con `ALTER TABLE` para añadir columnas a `pasos_receta_base` y `pasos_receta_usuario`.
+- Script SQL `migrations/001_backfill_from_processes.sql` que copia valores de `procesos_base/procesos_usuario` → `pasos_*`.
+- Pequeño README con instrucciones cómo ejecutar y verificar (comandos sqlite3).
+
+Commit message sugerido:
+`db: add step-level params to pasos_receta_* and backfill from procesos_*`
+
+Fase 1 (modelos + servicios, compatibilidad):
+- Cambios en `modelos.py`: nueva firma de `PasoReceta` y adaptación de RobotCocina para usar paso.* con fallback a proceso.*.
+- Cambios en `servicios.py`: `_cargar_recetas_generico`, `crear_receta_usuario`, `crear_proceso_usuario` (nuevo signature), y funciones de lectura para procesos (mantener compatibilidad).
+- Tests unitarios (pytest) básicos para `servicios._cargar_recetas_generico` que confirmen que los `PasoReceta` vienen con parámetros.
+- README de verificación: cómo ejecutar tests.
+
+Commit message sugerido:
+`modelos, servicios: move execution params from ProcesoCocina to PasoReceta (with fallback)`
+
+Fase 2 (UI):
+- Cambios en `vistas.py`: formulario de crear proceso (quitar inputs numéricos), formulario añadir paso en crear receta (mostrar inputs condicionales), envío de pasos enriquecidos a `servicios.crear_receta_usuario`.
+- Cambios menores en `vistas.py` para cálculo de tiempo estimado y mostrar instrucciones de pasos manuales en dashboard.
+- Capturas de pantalla o pasos manuales de prueba (qué clickear, qué validar).
+
+Commit message sugerido:
+`ui: allow step-level params when adding recipe steps; simplify process creation form`
+
+Fase 3 (limpieza + doc):
+- Scripts para eliminar columnas antiguas de `procesos_*` (recreate table pattern).
+- Actualizar `init_db.py` para insertar pasos con parámetros en `pasos_receta_base` (no en `procesos_base`).
+- Pruebas finales de integración: crear receta nueva (manual y automática), iniciar ejecución, pausar/reanudar, confirmar paso manual, calcular tiempo estimado.
+- Documentación de la nueva data model y cómo crear procesos/recetas.
+
+Commit message sugerido:
+`db: drop execution params from procesos_*; update init_db and docs`
+
+Criterios de aceptación (QA):
+1. Crear un proceso nuevo vía UI no requiere tiempo/temp/vel; se ve en la lista con nombre/tipo/tipo_ejecucion. (Ver tabla procesos en UI). :contentReference[oaicite:13]{index=13}
+2. Al crear una receta, al añadir un paso automático pido tiempo/temp/vel; esos valores se guardan y se usan durante la ejecución (barra de progreso y cálculo del tiempo total). (Ver lógica de guardado de recetas y cálculo actual). :contentReference[oaicite:14]{index=14} :contentReference[oaicite:15]{index=15}
+3. En recetas de fábrica existentes, el comportamiento no cambia tras la migración: el tiempo estimado y la ejecución deben permanecer iguales (porque backfill fijará los valores de los pasos). :contentReference[oaicite:16]{index=16}
+4. Robot ejecuta pasos automáticos usando **los parámetros del paso**. Si un paso no define parámetros, fallback a los del proceso (solo temporal hasta limpieza final).
+5. Paso manual muestra exactamente el texto libre que se guardó en el paso (no parsear ni intentar validar cantidades).
+
+Notas de ingeniería / consideraciones técnicas que debes seguir:
+- Mantén retrocompatibilidad por fases: no borres columnas hasta validar la fase 0–2.
+- Añade validaciones en la UI para los campos numéricos exactamente como están hoy (rango velocidad 0–10, tiempo >=1s, temp 0–120ºC).
+- Evita reordenar la base de datos sin dump/backup. Indica claramente pasos de rollback.
+- Escribe tests que cubran: persistencia (guardar/cargar receta con pasos parametrizados), ejecución (duración calculada), UI minimal smoke tests (si puedes, con una prueba de integración o instrucciones manuales detalladas).
+
+Archivos y funciones que **debes** modificar (lista explícita):
+- `data/init_db.py` — para insertar parámetros en `pasos_receta_base` en lugar de en `procesos_base` (fase 3). :contentReference[oaicite:17]{index=17}
+- `data/init_db.py` / scripts de migración — añadir scripts SQL. :contentReference[oaicite:18]{index=18}
+- `robot/modelos.py` — `PasoReceta`, `RobotCocina._ejecutar_receta_en_hilo` (usar paso.* con fallback a proceso.*). :contentReference[oaicite:19]{index=19}
+- `robot/servicios.py` — `_cargar_recetas_generico`, `crear_receta_usuario`, `crear_proceso_usuario`, funciones de lectura de procesos. :contentReference[oaicite:20]{index=20} :contentReference[oaicite:21]{index=21}
+- `robot/vistas.py` — formulario crear proceso (quitar inputs numéricos), crear receta (añadir inputs condicionales cuando se añade un paso) y cálculo de tiempo estimado en UI. :contentReference[oaicite:22]{index=22} :contentReference[oaicite:23]{index=23} :contentReference[oaicite:24]{index=24}
+
+Formato de entrega requerido por fase:
+- Patch/PR con commits pequeños y con mensajes sugeridos arriba.  
+- Para cada archivo modificado: fragmento de diff o el fichero completo (lista de cambios con líneas clave).  
+- Scripts `migrations/` con instrucciones claras para ejecutar (orden, backup, verificación).  
+- Tests unitarios/executables para validar comportamiento (pytest).  
+- README breve por fase: cómo verificar localmente.
+
+Preguntas que puedes hacerte antes de ejecutar:
+- ¿Hago primero la migración DB o el cambio de modelos? → migración DB no destructiva primero (añadir columnas + backfill) para evitar romper producción.
+- ¿Mantengo columnas antiguas hasta cuándo? → hasta que todas las pruebas de fases 1–2 pasen; entonces programar fase 3 para limpieza.
+- ¿Cómo verifico que los pasos de fábrica se han migrado correctamente? → comparar sumas de tiempos/velocidades antes y después del backfill para recetas base.
+
+=== FIN del prompt ===
+
+Trabaja por fases y entrega artefactos por fase como indiqué (scripts SQL, cambios en modelos/servicios/vistas, tests y README de verificación). Respeta la compatibilidad durante la migración y usa los fallbacks en ejecución (paso → proceso) hasta que se haya eliminado definitivamente la duplicidad de columnas.
+
+```
+## Posterior al refactor
+```ruby
+Objetivo general
+Implementar **modo manual real** con una card de controles (Temperatura, Tiempo, Velocidad) que permita cocinar de forma directa y segura, reutilizando los controles de inicio/pausa/cancelar existentes. El cambio debe integrarse con el RobotCocina ya refactorizado (parámetros por paso), persistir entre páginas y respetar la lógica de apagado actual.
+
+Contexto (lo que ya existe / supuestos)
+- El sistema usa NiceGUI para la UI.
+- Hay un modelo `RobotCocina` que gestiona estados (APAGADO, ESPERA, COCINANDO, PAUSADO, ESPERANDO_CONFIRMACION, ERROR) y un hilo de ejecución.
+- Tras el refactor, los parámetros de ejecución (tiempo, temp, vel) vivirán en `PasoReceta` para recetas; aquí desplegamos un modo separado para control manual independiente.
+- Queremos **eliminar** la restricción: “En modo manual no se usan recetas”. Manual vs Guiado pasa a ser un modo de control, pero la card manual ofrece una forma de ejecutar *cocción directa* (standalone). Si se inicia una receta y ya hay una cocción manual activa, una política clara debe aplicarse (ver abajo).
+
+Requisitos funcionales concretos (comportamiento esperado)
+1. Card de controles manuales (ubicación: dashboard / panel de control)
+   - Muestra y permite ajustar en todo momento:
+     - Temperatura: slider / número (min 0, max 120)
+     - Velocidad: slider / número (min 0, max 10)
+     - Tiempo restante: control tipo “ruleta/selector” o slider inteligente con la granularidad descrita (ver 3)
+   - Visualiza los valores actuales en texto (p. ej. `Temp: 95°C · Vel: 4 · Tiempo: 02:35`).
+   - Reutiliza los botones principales de control (INICIAR/REANUDAR, PAUSAR, CANCELAR) de la card de control de cocción. Es decir: la card manual no duplica lógica de inicio/pausa/cancelar sino que las invoca sobre el robot.
+   - Permite ajustar cualquier control **en caliente** mientras se cocina (los cambios se aplican inmediatamente).
+
+2. Eliminación de la restricción “En modo manual no se usan recetas”
+   - El usuario puede seleccionar una receta en Modo Manual. Comportamiento definido:
+     - Si **hay una cocción manual activa** y el usuario inicia una receta → **la cocción manual se cancelará** y la receta se iniciará (notificar al usuario).
+     - Si **hay una receta en curso** y el usuario inicia manual (INICIAR desde la card manual) → la receta en curso se cancelará y la cocción manual se iniciará.
+     - Esta política evita conflictos ambiguos e impondrá una única ejecución activa a la vez. (Se notificará y se usará diálogo de confirmación si procede.)
+
+3. Control del tiempo (experiencia tipo microondas / Thermomix)
+   - La ruleta/selector del tiempo:
+     - Incrementa en segundos hasta 60s con saltos razonables (p. ej. 5s, 10s, 15s...60s).
+     - A partir de 1 minuto, incrementos en minutos (1,2,3,...,90).
+     - Interacción: subir/bajar cambia **el tiempo restante** instantáneamente; no se requieren botones “+30s” ni similares, pero puede existir un pequeño conjunto de atajos si el UI lo necesita.
+   - Tiempo máximo: 90 minutos (5400 s). El temporizador acepta mínimo operativo 1s para iniciar.
+   - Si el temporizador llega a 0 → la cocción termina y el robot pasa a ESPERA. (Comportamiento igual que recetas automáticas.)
+
+4. Pausar / Reanudar / Cancelar
+   - Pausar: detiene decremento del temporizador; al reanudar continúa desde tiempo restante.
+   - Cancelar: detiene la cocción y pone los controles manuales a 0 (temp 0, vel 0, tiempo 0) y robot a ESPERA.
+   - Ajustar tiempo mientras está cocinando (por ejemplo de 2min a 5min) modifica inmediatamente el tiempo restante.
+
+5. Persistencia entre páginas
+   - La cocción manual (hilo/timer) persiste aunque el usuario navegue a otra página del UI. La UI debe re-sincronizarse mostrando el estado actual al volver.
+   - Si la sesión del servidor se reinicia o el robot se apaga, se aplica la lógica existente: todo se apaga y UI se refresca.
+
+6. Integración con robot existente y seguridad
+   - Reutilizar y extender `RobotCocina`:
+     - Añadir API/funciones: `iniciar_manual(temp, vel, tiempo)`, `ajustar_manual(temp?, vel?, tiempo?)`, `pausar_manual()`, `cancelar_manual()`, propiedades de estado `manual_activo`, `manual_tiempo_restante`, etc.
+     - La ejecución manual usa el mismo mecanismo de hilo que las recetas (o un hilo claro y coordinado) para contar tiempo y actualizar progreso. Evitar condiciones de carrera con la ejecución de recetas.
+   - En caso de apagado `RobotCocina.apagar()` debe detener cualquier cocción manual según la lógica actual y notificar UI.
+   - Validaciones: temp 0–120, vel 0–10, tiempo 1s–5400s. Aplicar límites en UI y en el backend.
+
+7. UX / accesibilidad y componentes sugeridos
+   - Temperatura y Velocidad: sliders con input numérico sincronizado (para precisión).
+   - Tiempo: componente mixto “wheel + numeric display” o slider con saltos; debe permitir precisión de segundos hasta 60s y luego minutos.
+   - Mostrar progreso visual (barra o circular) y tiempo restante en formato mm:ss.
+   - Hacer que los controles no sean ortopédicos: interacción natural y fluida, sin múltiples botones duplicados.
+
+Políticas operativas y prioridad
+- Solo una ejecución activa a la vez (manual o receta); iniciar una nueva cancela la anterior tras confirmación (si procede).
+- Ajustes manuales aplican inmediatamente al estado actual del robot.
+- Persistencia entre páginas mediante el estado del objeto `RobotCocina` en memoria; no es necesario persistir al disco.
+
+Plan por fases (entregas claras y seguras)
+Fase 1 — Diseño + API backend (entrega mínima viable)
+- Diseñar la API de `RobotCocina` para soporte manual: firmas y semántica de funciones.
+- Implementar métodos `iniciar_manual`, `ajustar_manual`, `pausar_manual`, `cancelar_manual` en `robot/modelos.py`. El hilo de ejecución ya existente debe poder manejar temporizadores decrecientes.
+- Tests unitarios (pytest) para la lógica del temporizador (iniciar, decrementar, pausar, reanudar, cancelar).
+Commit message sugerido: `robot: add manual cooking API and timer support`
+
+Fase 2 — UI mínima funcional
+- En `robot/vistas.py` añadir la card de controles manuales (NiceGUI).
+- Conectar botones INICIAR/PAUSAR/CANCELAR existentes para invocar las nuevas APIs.
+- Implementar sliders / inputs para temp, vel y el control de tiempo con la granularidad indicada.
+- UI debe mostrar estado actual y persistir al navegar.
+- Tests manuales: iniciar manual, ajustar en caliente, pausar, reanudar, cancelar, navegar de página y verificar persistencia.
+Commit message sugerido: `ui: add manual control card and bind to robot manual API`
+
+Fase 3 — Integración con recetas y políticas de prioridad
+- Implementar la política de preempción: iniciar receta cancela manual y viceversa; añadir diálogos de confirmación si necesario.
+- Asegurar que si una receta está en curso, la card manual está en modo “disponible” pero iniciar manual cancela receta.
+- Tests de integración: iniciar receta en modo manual y viceversa.
+Commit message sugerido: `integration: reconcile manual cooking and recipe execution with preemption policy`
+
+Fase 4 — Pulir UX + robustez
+- Ajustes finos del control de tiempo (saltos, rueda), animaciones, notificaciones.
+- Manejo de edge-cases: redondeos temporales, sincronización UI-thread, reintentos si callback falla.
+- Pruebas E2E (manuales + automatizadas si posible).
+Commit message sugerido: `ui: polish manual controls, accessibility and edge cases`
+
+Entregables por fase
+- Fase 1: diff/patch de `robot/modelos.py` con nuevas funciones y tests unitarios.
+- Fase 2: diff/patch de `robot/vistas.py` (card completa), snippets de componentes (sliders, wheel), y pasos de verificación en README.
+- Fase 3: cambios en control de flujo (`robot/modelos.py` + `vistas.py`) y pruebas de integración.
+- Fase 4: mejoras, documentación y tests E2E.
+
+Archivos / funciones a modificar (lista explícita)
+- `robot/modelos.py`
+  - Añadir: `iniciar_manual(temp, vel, tiempo)`, `ajustar_manual(...)`, `pausar_manual()`, `cancelar_manual()`
+  - Estado interno: `_manual_activo`, `_manual_tiempo_restante`, `_manual_temp`, `_manual_vel`, protección con `_lock`
+  - Ajustar hilo de ejecución para soportar decremento de temporizador y comunicación con UI.
+- `robot/vistas.py`
+  - Añadir la nueva card de controles manuales al dashboard.
+  - Conectar botones existentes INICIAR/PAUSAR/CANCELAR a llamadas que respeten si se está en modo manual o ejecutando receta.
+  - Lógica frontend para ajustar parámetros en caliente y enviar `ajustar_manual` al backend.
+- `robot/servicios.py` (si fuera necesario)
+  - Exponer funciones para que la UI llame a la API del robot (si existe una capa de servicios).
+- Tests:
+  - `tests/test_robot_manual.py` con casos de temporizador y controles.
+
+Criterios de aceptación (QA)
+1. La card manual permite ajustar temp/vel/tiempo y muestra valores actuales.
+2. Comportamiento del temporizador:
+   - Iniciar hace decrementar el tiempo.
+   - Pausar detiene la cuenta.
+   - Reanudar continúa.
+   - Cancelar pone todo a 0 y deja robot en ESPERA.
+3. Ajustes en caliente afectan inmediatamente la ejecución en curso.
+4. Persistencia entre páginas: navegar fuera y volver muestra estado correcto y temporizador sigue vivo.
+5. Al iniciar receta mientras hay ejecución manual activa, la ejecución manual se cancela (y viceversa) con notificación.
+6. Apagar el robot detiene todo y deja el estado como ahora (apagar/reseteo).
+7. Validaciones: temp 0–120, vel 0–10, tiempo 1–5400s. UI y backend aplican las mismas restricciones.
+
+Notas técnicas adicionales y consideraciones
+- Evitar duplicar lógica de ejecución: reutilizar el modelo de ejecución por pasos para el temporizador (un paso virtual `PasoReceta` podría usarse internamente), aunque no se persista.
+- Sincronización: usar `_lock` cuando se muta estado del robot; la UI debe leer estado de forma atómica.
+- Eventos / callbacks: preferir notificaciones websocket / push (NiceGUI bindings) para actualizar la UI en tiempo real.
+- No persistir la cocción manual en DB; persistir en memoria para mantener simplicidad (se persiste solo mientras el servidor esté vivo). Documentar esto.
+- Documentar claramente el comportamiento en caso de reinicio del servidor o pérdida de energía.
+
+Formato de entrega requerido
+- Para cada fase: patch/diff o ficheros completos modificados listos para copiar/pegar.
+- Tests unitarios (pytest) correspondientes.
+- README con pasos de verificación y comandos para ejecutar pruebas.
+- Commit message sugeridos incluidos en cada fase.
+
+Instrucción final para Claude
+- Trabaja por fases y entrega los artefactos indicados en cada fase.
+- Incluye en cada entrega: el código completo modificado, tests, instrucciones de verificación y el commit message sugerido.
+- No rompas compatibilidad existente de `RobotCocina` hasta que las pruebas de la fase anterior pasen.
+- Si hay decisiones de diseño que deban tomarse (por ejemplo: “¿la cocción manual debe persistir tras reboot?”), propone la opción por defecto y documenta trade-offs.
+
+---  
+Fin del prompt.  
+Pega todo esto y procede por fases como indiqué.  
+
+```
