@@ -12,6 +12,10 @@ from robot import servicios
 
 THEME_STATE = {'dark': False}
 
+def aplicar_tema_global():
+    ui.dark_mode().value = THEME_STATE['dark']
+
+
 # Paleta de colores
 COLORS = {
     'primary': '#4F46E5',      # Indigo moderno
@@ -188,6 +192,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
     @ui.page('/')
     def pagina_dashboard() -> None:
+        aplicar_tema_global()
         ui.page_title('Dashboard - Robot de Cocina')
         
         # Función de refresco completo para el dashboard
@@ -1132,6 +1137,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
     @ui.page('/procesos')
     def pagina_procesos() -> None:
+        aplicar_tema_global()
         ui.page_title('Procesos - Robot de Cocina')
         
         # Estados para controlar la visualización de procesos
@@ -1455,6 +1461,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
     @ui.page('/recetas')
     def pagina_recetas() -> None:
+        aplicar_tema_global()
         ui.page_title('Recetas - Robot de Cocina')
         
         # Función de refresco para recetas
