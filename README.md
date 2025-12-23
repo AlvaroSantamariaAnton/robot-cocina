@@ -1,14 +1,30 @@
-EFDOO_NombreAlumno/
-│
-├─ app.py                 # Punto de entrada: lanza NiceGUI y el robot
-├─ robot/
-│   ├─ __init__.py
-│   ├─ modelos.py         # Clases de POO: Robot, Receta, Proceso, etc.
-│   └─ servicios.py       # Lógica de negocio: control del robot, recetas, etc.
-├─ data/
-│   ├─ robot.db           # Base de datos SQLite
-│   └─ init_db.py         # Script para crear tablas e insertar datos de fábrica
-├─ ui/
-│   ├─ __init__.py
-│   └─ vistas.py          # Páginas NiceGUI: panel, gestión recetas, ajustes...
-└─ README.md
+- Arreglar modo oscuro.
+- Implementar card con controles manuales (Temperatura, tiempo y velocidad) para modo manual, un deslizable o ruleta o lo que mejor convenga para cada uno.
+    - Tener en cuenta y eliminar la restriccion actual "En modo manual no se usan recetas. Cambia a modo Guiado.".
+    - Reutilizar card de control de coccion para Iniciar / Pausar / Cancelar.
+    - Los controles se pueden ajustar en cualquier momento (aumentar/disminuir temperatura, velocidad o tiempo).
+    - El control del tiempo consiste en un símil al temporizador de un microondas, con el boton de la card de los controles manuales subes el tiempo (durante dicho tiempo estára cocinando), para que comience a cocinar le das al Inicar (botón de la card de control de coccón), si se acaba el tiempo el robot vuelve a "en espera", pudiendo volver a iniciarlo.
+    - Mientras está cocinando y bajando segundos del temporizador, se puede dar a Pausar (pausará el temporizador hasta que se le de al boton de Iniciar/Reanudar) o se puede dar a Cancelar (lo que pondrá los controles manuales a 0 y dejará el robot "en espera").
+    - Como ya dije antes, si quedan por ejemplo, 2 minutos en el temporizador, se puede aumentar a 5 min por ejemplo, pero sin botones ni cosas ortopédicas, como se hace en los microondas o thermomix convencionales, simplemente moviendo (subiendo y bajando) el control el tiempo cambia instantáneamente, de modo que puedes aumentar o disminuir el tiempo restante inmediatamente.
+    - Máximos y mínimos de los controles
+        - Temperatura: min 0, max 120
+        - Velocidad: min 0, max 10
+        - Tiempo: no hay minimo como tal en este modo (obviamnete el minimo para que empiece a funcionar es 1 segundo), max 90 min
+    - En los controles manuales aparecerá el valor actual de Temperatura, velocidad y tiempo.
+    - El control del tiempo aumenta por segundos antes de llegar al minuto (5-10-15-...-60s) y por minutos pasado el minuto (1-2-3-4-5-...-90min), intentando que la ruleta no se haga muy larga por si alguien quiere moner muchos minutos.
+    - Cocción persiste aunque cambies de página.
+    - Si se apaga el robot repentinamente, da igual el estado o momento, todo se apagara y se refrescará siguiendo la lógica existente.
+- Sección crear nuevo proceso
+    - En modo Manual seleccionado, bloquear visualmente los contenedores de Tiempo, Temperatura y Velocidad, que se muestren '-'
+    - Al seleccionar modo automático de nuevo, desbloquear contenedores y restablecer a valores por defecto
+    - Mantener máximos y mínimos
+    - Agregar máximo de 90 minutos o 5400 segundos al campo del tiempo.
+    - Por defecto, ningun modo seleccionado
+- Procesos: formatear segundos (tiempo) a minutos
+    - Listas
+    - Crear nuevo proceso
+- No me convence el sistema actual de procesos
+    - Los procesos de fábrica me da igual que sean generales
+    - La manera de registrar procesos de usuario no me convence si lo pensamos como algo que se va a usar
+        - Si el tiempo de triturado y velocidad es distinto en cada receta (suponiendo que el usuario quiera crear muchas recetas), implicaría crear un proceso nuevo cada vez, hasta que punto esto es realista? tampoco veo otra solucion.
+        - Si en una receta tengo que echar mantequilla en varias partes (al principio 15g, más tarde otros 20g y más adelante otros 10g), necsito crear 3 procesos nuevos para una sola receta, por no hablar de como diferenciarlas, meto la cantidad en el nombre? porque si lo meto en las instrucciones no se diferencian desde la lista a no ser que cliques en cada uno para comprobarlo.

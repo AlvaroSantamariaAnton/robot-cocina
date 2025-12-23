@@ -1292,7 +1292,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         input_nombre = ui.input('Nombre').props('outlined dense').classes('col-span-2')
                         input_tipo = ui.input('Tipo (ej: Preparación, Cocción)').props('outlined dense')
                         select_tipo_ej = ui.select(['Manual', 'Automático'], label='Tipo de Ejecución', value=None).props('outlined dense')
-                        input_instrucciones = ui.textarea('Instrucciones (obligatorio para manuales)').props('outlined').classes('col-span-2')
+                        input_instrucciones = ui.textarea('Instrucciones (opcional)').props('outlined').classes('col-span-2')
                         input_temp = ui.number('Temperatura (0-120ºC)', value=0, min=0, max=120).props('outlined dense')
                         input_tiempo = ui.number('Tiempo (s)', value=60, min=1).props('outlined dense')
                         input_velocidad = ui.number('Velocidad (0-10)', value=0, min=0, max=10).props('outlined dense')
@@ -1310,10 +1310,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         
                         if not tipo_ej:
                             ui.notify('Selecciona un tipo de ejecución', type='negative')
-                            return
-                        
-                        if tipo_ej == 'Manual' and not instrucciones:
-                            ui.notify('Los procesos manuales requieren instrucciones', type='negative')
                             return
                         
                         # Convertir tipo de ejecución a formato de BD
