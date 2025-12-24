@@ -19,31 +19,25 @@ def crear_tablas(conn: sqlite3.Connection) -> None:
     """Crea las tablas necesarias si no existen."""
     cur = conn.cursor()
 
-    # Tabla de procesos de fábrica
+    # Tabla de procesos de fábrica (SIN parámetros de ejecución)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS procesos_base (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT NOT NULL,
             tipo TEXT NOT NULL,
             tipo_ejecucion TEXT NOT NULL DEFAULT 'automatico',
-            instrucciones TEXT,
-            temperatura INTEGER NOT NULL,
-            tiempo_segundos INTEGER NOT NULL,
-            velocidad INTEGER NOT NULL
+            instrucciones TEXT
         );
     """)
 
-    # Tabla de procesos creados por el usuario
+    # Tabla de procesos creados por el usuario (SIN parámetros de ejecución)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS procesos_usuario (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT NOT NULL,
             tipo TEXT NOT NULL,
             tipo_ejecucion TEXT NOT NULL DEFAULT 'automatico',
-            instrucciones TEXT,
-            temperatura INTEGER NOT NULL,
-            tiempo_segundos INTEGER NOT NULL,
-            velocidad INTEGER NOT NULL
+            instrucciones TEXT
         );
     """)
 
@@ -57,13 +51,17 @@ def crear_tablas(conn: sqlite3.Connection) -> None:
         );
     """)
 
-    # Pasos de las recetas de fábrica
+    # Pasos de las recetas de fábrica (CON parámetros de ejecución)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS pasos_receta_base (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             id_receta INTEGER NOT NULL,
             id_proceso INTEGER NOT NULL,
             orden INTEGER NOT NULL,
+            temperatura INTEGER DEFAULT NULL,
+            tiempo_segundos INTEGER DEFAULT NULL,
+            velocidad INTEGER DEFAULT NULL,
+            instrucciones TEXT DEFAULT NULL,
             FOREIGN KEY (id_receta) REFERENCES recetas_base(id),
             FOREIGN KEY (id_proceso) REFERENCES procesos_base(id)
         );
@@ -79,13 +77,17 @@ def crear_tablas(conn: sqlite3.Connection) -> None:
         );
     """)
 
-    # Pasos de las recetas del usuario
+    # Pasos de las recetas del usuario (CON parámetros de ejecución)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS pasos_receta_usuario (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             id_receta INTEGER NOT NULL,
             id_proceso INTEGER NOT NULL,
             orden INTEGER NOT NULL,
+            temperatura INTEGER DEFAULT NULL,
+            tiempo_segundos INTEGER DEFAULT NULL,
+            velocidad INTEGER DEFAULT NULL,
+            instrucciones TEXT DEFAULT NULL,
             FOREIGN KEY (id_receta) REFERENCES recetas_usuario(id),
             FOREIGN KEY (id_proceso) REFERENCES procesos_usuario(id)
         );
@@ -123,226 +125,111 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
         return
 
     # ============================
-    # Insertar PROCESOS de fábrica
+    # Insertar PROCESOS de fábrica (SIN parámetros de ejecución)
     # ============================
-    # Formato: (nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad)
+    # Formato: (nombre, tipo, tipo_ejecucion, instrucciones)
 
     procesos_base = [
         # ===== PROCESOS MANUALES =====
         
         # --- Preparación inicial ---
         ("Añadir ingredientes secos", "Preparación", "manual", 
-         "Añadir al vaso todos los ingredientes secos indicados en la receta (harina, azúcar, sal, especias, etc.)", 
-         0, 0, 0),
+         "Añadir al vaso todos los ingredientes secos indicados en la receta (harina, azúcar, sal, especias, etc.)"),
         
         ("Añadir ingredientes líquidos", "Preparación", "manual",
-         "Añadir al vaso todos los líquidos indicados (agua, leche, aceite, caldo, etc.)",
-         0, 0, 0),
+         "Añadir al vaso todos los líquidos indicados (agua, leche, aceite, caldo, etc.)"),
         
         ("Añadir verduras preparadas", "Preparación", "manual",
-         "Incorporar las verduras ya peladas y cortadas según indicaciones de la receta",
-         0, 0, 0),
+         "Incorporar las verduras ya peladas y cortadas según indicaciones de la receta"),
         
         ("Añadir proteína", "Preparación", "manual",
-         "Incorporar la carne, pescado o proteína vegetal indicada, previamente limpia y troceada",
-         0, 0, 0),
+         "Incorporar la carne, pescado o proteína vegetal indicada, previamente limpia y troceada"),
         
         ("Añadir lácteos", "Preparación", "manual",
-         "Añadir los productos lácteos necesarios (leche, nata, queso, mantequilla, etc.)",
-         0, 0, 0),
+         "Añadir los productos lácteos necesarios (leche, nata, queso, mantequilla, etc.)"),
         
         ("Añadir aromáticos", "Preparación", "manual",
-         "Incorporar hierbas aromáticas, ajo, cebolla u otros elementos que den sabor base",
-         0, 0, 0),
+         "Incorporar hierbas aromáticas, ajo, cebolla u otros elementos que den sabor base"),
         
         # --- Verificación y control ---
         ("Verificar punto de cocción", "Verificación", "manual",
-         "Probar el alimento y verificar que está en su punto. Ajustar sal y especias si es necesario",
-         0, 0, 0),
+         "Probar el alimento y verificar que está en su punto. Ajustar sal y especias si es necesario"),
         
         ("Verificar textura", "Verificación", "manual",
-         "Comprobar que la textura es la deseada. Si es necesario, continuar procesando",
-         0, 0, 0),
+         "Comprobar que la textura es la deseada. Si es necesario, continuar procesando"),
         
         ("Retirar líquido de cocción", "Manipulación", "manual",
-         "Con cuidado de no quemarse, retirar el líquido sobrante usando el vaso medidor o escurriendo",
-         0, 0, 0),
+         "Con cuidado de no quemarse, retirar el líquido sobrante usando el vaso medidor o escurriendo"),
         
         ("Añadir ingredientes finales", "Preparación", "manual",
-         "Incorporar los ingredientes que se añaden al final (hierbas frescas, aceite en crudo, etc.)",
-         0, 0, 0),
+         "Incorporar los ingredientes que se añaden al final (hierbas frescas, aceite en crudo, etc.)"),
         
         ("Transferir a recipiente", "Manipulación", "manual",
-         "Verter el contenido del vaso al recipiente de servir indicado",
-         0, 0, 0),
+         "Verter el contenido del vaso al recipiente de servir indicado"),
         
         ("Reservar porción", "Manipulación", "manual",
-         "Sacar y reservar aparte la cantidad indicada de la preparación para uso posterior",
-         0, 0, 0),
+         "Sacar y reservar aparte la cantidad indicada de la preparación para uso posterior"),
         
         # ===== PROCESOS AUTOMÁTICOS =====
         
         # --- Picado y triturado (frío) ---
-        ("Picar verduras finamente", "Manipulación", "automatico",
-         "Proceso automático de picado fino",
-         0, 15, 5),
-        
-        ("Picar verduras groseramente", "Manipulación", "automatico",
-         "Proceso automático de picado grueso",
-         0, 10, 4),
-        
-        ("Picar carne", "Manipulación", "automatico",
-         "Proceso automático de picado de carne",
-         0, 20, 5),
-        
-        ("Rallar queso", "Manipulación", "automatico",
-         "Proceso automático de rallado",
-         0, 20, 5),
-        
-        ("Triturar grueso", "Manipulación", "automatico",
-         "Proceso automático de triturado grueso (trozos visibles)",
-         0, 25, 6),
-        
-        ("Triturar fino", "textura", "automatico",
-         "Proceso automático de triturado fino (textura suave)",
-         0, 40, 8),
-        
-        ("Pulverizar", "textura", "automatico",
-         "Proceso automático de pulverización (polvo fino)",
-         0, 45, 10),
-        
-        ("Picar frutos secos", "Manipulación", "automatico",
-         "Proceso automático de picado de frutos secos",
-         0, 15, 4),
-        
-        ("Moler especias", "Manipulación", "automatico",
-         "Proceso automático de molido de especias",
-         0, 30, 10),
+        ("Picar verduras finamente", "Manipulación", "automatico", "Proceso automático de picado fino"),
+        ("Picar verduras groseramente", "Manipulación", "automatico", "Proceso automático de picado grueso"),
+        ("Picar carne", "Manipulación", "automatico", "Proceso automático de picado de carne"),
+        ("Rallar queso", "Manipulación", "automatico", "Proceso automático de rallado"),
+        ("Triturar grueso", "Manipulación", "automatico", "Proceso automático de triturado grueso (trozos visibles)"),
+        ("Triturar fino", "textura", "automatico", "Proceso automático de triturado fino (textura suave)"),
+        ("Pulverizar", "textura", "automatico", "Proceso automático de pulverización (polvo fino)"),
+        ("Picar frutos secos", "Manipulación", "automatico", "Proceso automático de picado de frutos secos"),
+        ("Moler especias", "Manipulación", "automatico", "Proceso automático de molido de especias"),
         
         # --- Mezcla (frío) ---
-        ("Mezclar suave", "mezcla", "automatico",
-         "Proceso automático de mezclado suave",
-         0, 30, 2),
-        
-        ("Mezclar intenso", "mezcla", "automatico",
-         "Proceso automático de mezclado intenso",
-         0, 45, 4),
-        
-        ("Amasar", "amasado", "automatico",
-         "Proceso automático de amasado",
-         0, 180, 3),
-        
-        ("Emulsionar", "textura", "automatico",
-         "Proceso automático de emulsión (salsas, mayonesas)",
-         0, 40, 4),
-        
-        ("Batir claras", "textura", "automatico",
-         "Proceso automático de montado de claras",
-         0, 120, 3),
-        
-        ("Montar nata", "textura", "automatico",
-         "Proceso automático de montado de nata",
-         0, 90, 3),
+        ("Mezclar suave", "mezcla", "automatico", "Proceso automático de mezclado suave"),
+        ("Mezclar intenso", "mezcla", "automatico", "Proceso automático de mezclado intenso"),
+        ("Amasar", "amasado", "automatico", "Proceso automático de amasado"),
+        ("Emulsionar", "textura", "automatico", "Proceso automático de emulsión (salsas, mayonesas)"),
+        ("Batir claras", "textura", "automatico", "Proceso automático de montado de claras"),
+        ("Montar nata", "textura", "automatico", "Proceso automático de montado de nata"),
         
         # --- Cocción con temperatura baja-media ---
-        ("Calentar suave", "Cocción", "automatico",
-         "Proceso automático de calentamiento suave",
-         60, 120, 1),
-        
-        ("Templar", "Cocción", "automatico",
-         "Proceso automático para templar mezclas",
-         50, 180, 2),
-        
-        ("Sofreír suave", "Cocción", "automatico",
-         "Proceso automático de sofrito suave",
-         100, 240, 1),
-        
-        ("Sofreír intenso", "Cocción", "automatico",
-         "Proceso automático de sofrito intenso",
-         120, 180, 2),
-        
-        ("Pochar", "Cocción", "automatico",
-         "Proceso automático de pochado",
-         90, 300, 1),
+        ("Calentar suave", "Cocción", "automatico", "Proceso automático de calentamiento suave"),
+        ("Templar", "Cocción", "automatico", "Proceso automático para templar mezclas"),
+        ("Sofreír suave", "Cocción", "automatico", "Proceso automático de sofrito suave"),
+        ("Sofreír intenso", "Cocción", "automatico", "Proceso automático de sofrito intenso"),
+        ("Pochar", "Cocción", "automatico", "Proceso automático de pochado"),
         
         # --- Cocción con temperatura alta ---
-        ("Hervir suave", "Cocción", "automatico",
-         "Proceso automático de hervido suave",
-         100, 420, 1),
-        
-        ("Hervir", "Cocción", "automatico",
-         "Proceso automático de hervido",
-         100, 600, 1),
-        
-        ("Cocción al vapor", "Cocción", "automatico",
-         "Proceso automático de cocción al vapor",
-         100, 900, 0),
-        
-        ("Reducir líquido", "Cocción", "automatico",
-         "Proceso automático de reducción",
-         100, 480, 2),
-        
-        ("Cocer a fuego lento", "Cocción", "automatico",
-         "Proceso automático de cocción lenta",
-         95, 1200, 1),
+        ("Hervir suave", "Cocción", "automatico", "Proceso automático de hervido suave"),
+        ("Hervir", "Cocción", "automatico", "Proceso automático de hervido"),
+        ("Cocción al vapor", "Cocción", "automatico", "Proceso automático de cocción al vapor"),
+        ("Reducir líquido", "Cocción", "automatico", "Proceso automático de reducción"),
+        ("Cocer a fuego lento", "Cocción", "automatico", "Proceso automático de cocción lenta"),
         
         # --- Cocciónes especiales ---
-        ("Confitar", "Cocción", "automatico",
-         "Proceso automático de confitado",
-         80, 1800, 0),
-        
-        ("Cocción lenta prolongada", "Cocción", "automatico",
-         "Proceso automático de cocción muy lenta",
-         90, 3600, 0),
+        ("Confitar", "Cocción", "automatico", "Proceso automático de confitado"),
+        ("Cocción lenta prolongada", "Cocción", "automatico", "Proceso automático de cocción muy lenta"),
         
         # --- Texturas finales ---
-        ("Preparar puré", "textura", "automatico",
-         "Proceso automático de triturado para puré",
-         0, 35, 6),
-        
-        ("Preparar crema fina", "textura", "automatico",
-         "Proceso automático de triturado fino para cremas",
-         0, 50, 8),
-        
-        ("Preparar mousse", "textura", "automatico",
-         "Proceso automático de mezclado suave para mousses",
-         0, 60, 3),
-        
-        ("Ligar salsa", "textura", "automatico",
-         "Proceso automático para ligar salsas",
-         80, 120, 4),
+        ("Preparar puré", "textura", "automatico", "Proceso automático de triturado para puré"),
+        ("Preparar crema fina", "textura", "automatico", "Proceso automático de triturado fino para cremas"),
+        ("Preparar mousse", "textura", "automatico", "Proceso automático de mezclado suave para mousses"),
+        ("Ligar salsa", "textura", "automatico", "Proceso automático para ligar salsas"),
         
         # --- Repostería ---
-        ("Mezclar masa pastelera", "Repostería", "automatico",
-         "Proceso automático de mezclado para masas de pastelería",
-         0, 60, 3),
-        
-        ("Fundir chocolate", "Repostería", "automatico",
-         "Proceso automático de fundido de chocolate",
-         50, 180, 2),
-        
-        ("Hacer caramelo", "Repostería", "automatico",
-         "Proceso automático de caramelización",
-         110, 420, 2),
-        
-        ("Templar chocolate", "Repostería", "automatico",
-         "Proceso automático de templado de chocolate",
-         45, 300, 2),
+        ("Mezclar masa pastelera", "Repostería", "automatico", "Proceso automático de mezclado para masas de pastelería"),
+        ("Fundir chocolate", "Repostería", "automatico", "Proceso automático de fundido de chocolate"),
+        ("Hacer caramelo", "Repostería", "automatico", "Proceso automático de caramelización"),
+        ("Templar chocolate", "Repostería", "automatico", "Proceso automático de templado de chocolate"),
         
         # --- Procesos de enfriamiento ---
-        ("Enfriar rápido", "enfriamiento", "automatico",
-         "Proceso de mezclado suave para enfriar rápidamente",
-         0, 180, 2),
-        
-        ("Remover en frío", "enfriamiento", "automatico",
-         "Proceso de removido suave sin temperatura",
-         0, 120, 1),
+        ("Enfriar rápido", "enfriamiento", "automatico", "Proceso de mezclado suave para enfriar rápidamente"),
+        ("Remover en frío", "enfriamiento", "automatico", "Proceso de removido suave sin temperatura"),
     ]
 
     cur.executemany(
         """
-        INSERT INTO procesos_base (nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad)
-        VALUES (?, ?, ?, ?, ?, ?, ?);
+        INSERT INTO procesos_base (nombre, tipo, tipo_ejecucion, instrucciones)
+        VALUES (?, ?, ?, ?);
         """,
         procesos_base,
     )
@@ -368,13 +255,14 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
                 {"nombre": "Sal", "cantidad": 1, "unidad": "cucharadita", "nota": "al gusto"},
             ],
             "pasos": [
-                (1, "Añadir verduras preparadas"),
-                (2, "Añadir ingredientes líquidos"),
-                (3, "Hervir"),
-                (4, "Retirar líquido de cocción"),
-                (5, "Añadir lácteos"),
-                (6, "Preparar puré"),
-                (7, "Verificar textura"),
+                # (orden, nombre_proceso, temp, tiempo_seg, vel, instrucciones)
+                (1, "Añadir verduras preparadas", None, None, None, "Añadir las patatas troceadas al vaso"),
+                (2, "Añadir ingredientes líquidos", None, None, None, "Añadir el agua hasta cubrir las patatas"),
+                (3, "Hervir", 100, 600, 1, None),
+                (4, "Retirar líquido de cocción", None, None, None, "Escurrir el agua de cocción con cuidado"),
+                (5, "Añadir lácteos", None, None, None, "Añadir la leche y mantequilla"),
+                (6, "Preparar puré", 0, 35, 6, None),
+                (7, "Verificar textura", None, None, None, "Probar y ajustar sal si es necesario"),
             ],
         },
         {
@@ -390,15 +278,15 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
                 {"nombre": "Sal", "cantidad": 1, "unidad": "cucharadita", "nota": "al gusto"},
             ],
             "pasos": [
-                (1, "Añadir aromáticos"),
-                (2, "Añadir ingredientes líquidos"),
-                (3, "Sofreír suave"),
-                (4, "Añadir verduras preparadas"),
-                (5, "Añadir ingredientes líquidos"),
-                (6, "Hervir suave"),
-                (7, "Triturar fino"),
-                (8, "Preparar crema fina"),
-                (9, "Verificar punto de cocción"),
+                (1, "Añadir aromáticos", None, None, None, "Añadir el puerro troceado"),
+                (2, "Añadir ingredientes líquidos", None, None, None, "Añadir el aceite de oliva"),
+                (3, "Sofreír suave", 100, 240, 1, None),
+                (4, "Añadir verduras preparadas", None, None, None, "Incorporar zanahoria, calabacín y patata"),
+                (5, "Añadir ingredientes líquidos", None, None, None, "Añadir el caldo de verduras"),
+                (6, "Hervir suave", 100, 420, 1, None),
+                (7, "Triturar fino", 0, 40, 8, None),
+                (8, "Preparar crema fina", 0, 50, 8, None),
+                (9, "Verificar punto de cocción", None, None, None, "Probar y ajustar sal y especias"),
             ],
         },
         {
@@ -412,11 +300,11 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
                 {"nombre": "Aceite de oliva", "cantidad": 30, "unidad": "ml", "nota": ""},
             ],
             "pasos": [
-                (1, "Añadir ingredientes líquidos"),
-                (2, "Añadir ingredientes secos"),
-                (3, "Mezclar suave"),
-                (4, "Amasar"),
-                (5, "Verificar textura"),
+                (1, "Añadir ingredientes líquidos", None, None, None, "Añadir agua tibia y aceite"),
+                (2, "Añadir ingredientes secos", None, None, None, "Incorporar harina, levadura y sal"),
+                (3, "Mezclar suave", 0, 30, 2, None),
+                (4, "Amasar", 0, 180, 3, None),
+                (5, "Verificar textura", None, None, None, "La masa debe estar elástica y no pegajosa"),
             ],
         },
         {
@@ -430,11 +318,11 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
                 {"nombre": "Nuez moscada", "cantidad": 1, "unidad": "pizca", "nota": "opcional"},
             ],
             "pasos": [
-                (1, "Añadir lácteos"),
-                (2, "Añadir ingredientes secos"),
-                (3, "Calentar suave"),
-                (4, "Ligar salsa"),
-                (5, "Verificar textura"),
+                (1, "Añadir lácteos", None, None, None, "Añadir leche y mantequilla"),
+                (2, "Añadir ingredientes secos", None, None, None, "Incorporar harina, sal y nuez moscada"),
+                (3, "Calentar suave", 60, 120, 1, None),
+                (4, "Ligar salsa", 80, 120, 4, None),
+                (5, "Verificar textura", None, None, None, "La salsa debe cubrir el dorso de una cuchara"),
             ],
         },
         {
@@ -449,12 +337,12 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
                 {"nombre": "Sal", "cantidad": 1, "unidad": "pizca", "nota": "al gusto"},
             ],
             "pasos": [
-                (1, "Añadir aromáticos"),
-                (2, "Añadir ingredientes secos"),
-                (3, "Triturar grueso"),
-                (4, "Añadir ingredientes líquidos"),
-                (5, "Emulsionar"),
-                (6, "Verificar textura"),
+                (1, "Añadir aromáticos", None, None, None, "Añadir albahaca y ajo"),
+                (2, "Añadir ingredientes secos", None, None, None, "Incorporar piñones y parmesano"),
+                (3, "Triturar grueso", 0, 25, 6, None),
+                (4, "Añadir ingredientes líquidos", None, None, None, "Añadir el aceite de oliva"),
+                (5, "Emulsionar", 0, 40, 4, None),
+                (6, "Verificar textura", None, None, None, "El pesto debe ser cremoso pero con textura"),
             ],
         },
         {
@@ -470,12 +358,12 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
                 {"nombre": "Sal", "cantidad": 1, "unidad": "cucharadita", "nota": ""},
             ],
             "pasos": [
-                (1, "Añadir ingredientes secos"),
-                (2, "Añadir ingredientes líquidos"),
-                (3, "Añadir aromáticos"),
-                (4, "Triturar fino"),
-                (5, "Emulsionar"),
-                (6, "Verificar textura"),
+                (1, "Añadir ingredientes secos", None, None, None, "Añadir garbanzos, comino y sal"),
+                (2, "Añadir ingredientes líquidos", None, None, None, "Incorporar tahini, zumo de limón y aceite"),
+                (3, "Añadir aromáticos", None, None, None, "Añadir los dientes de ajo"),
+                (4, "Triturar fino", 0, 40, 8, None),
+                (5, "Emulsionar", 0, 40, 4, None),
+                (6, "Verificar textura", None, None, None, "El hummus debe ser cremoso y homogéneo"),
             ],
         },
         {
@@ -492,17 +380,17 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
                 {"nombre": "Aceite de oliva", "cantidad": 40, "unidad": "ml", "nota": ""},
             ],
             "pasos": [
-                (1, "Añadir aromáticos"),
-                (2, "Añadir ingredientes líquidos"),
-                (3, "Sofreír suave"),
-                (4, "Añadir verduras preparadas"),
-                (5, "Sofreír intenso"),
-                (6, "Añadir ingredientes secos"),
-                (7, "Añadir ingredientes líquidos"),
-                (8, "Cocer a fuego lento"),
-                (9, "Añadir lácteos"),
-                (10, "Mezclar suave"),
-                (11, "Verificar punto de cocción"),
+                (1, "Añadir aromáticos", None, None, None, "Añadir cebolla picada"),
+                (2, "Añadir ingredientes líquidos", None, None, None, "Añadir aceite de oliva"),
+                (3, "Sofreír suave", 100, 240, 1, None),
+                (4, "Añadir verduras preparadas", None, None, None, "Incorporar las setas laminadas"),
+                (5, "Sofreír intenso", 120, 180, 2, None),
+                (6, "Añadir ingredientes secos", None, None, None, "Añadir el arroz arborio"),
+                (7, "Añadir ingredientes líquidos", None, None, None, "Añadir vino blanco y caldo poco a poco"),
+                (8, "Cocer a fuego lento", 95, 1200, 1, None),
+                (9, "Añadir lácteos", None, None, None, "Incorporar mantequilla y parmesano"),
+                (10, "Mezclar suave", 0, 30, 2, None),
+                (11, "Verificar punto de cocción", None, None, None, "El arroz debe estar al dente y cremoso"),
             ],
         },
         {
@@ -519,13 +407,13 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
                 {"nombre": "Sal", "cantidad": 1, "unidad": "cucharadita", "nota": "al gusto"},
             ],
             "pasos": [
-                (1, "Añadir verduras preparadas"),
-                (2, "Añadir aromáticos"),
-                (3, "Añadir ingredientes secos"),
-                (4, "Añadir ingredientes líquidos"),
-                (5, "Triturar fino"),
-                (6, "Verificar punto de cocción"),
-                (7, "Enfriar rápido"),
+                (1, "Añadir verduras preparadas", None, None, None, "Añadir tomates, pepino y pimiento"),
+                (2, "Añadir aromáticos", None, None, None, "Incorporar el diente de ajo"),
+                (3, "Añadir ingredientes secos", None, None, None, "Añadir el pan duro y la sal"),
+                (4, "Añadir ingredientes líquidos", None, None, None, "Añadir aceite y vinagre"),
+                (5, "Triturar fino", 0, 40, 8, None),
+                (6, "Verificar punto de cocción", None, None, None, "Probar y ajustar sal y vinagre"),
+                (7, "Enfriar rápido", 0, 180, 2, None),
             ],
         },
     ]
@@ -544,17 +432,20 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
         )
         id_receta = cur.lastrowid
 
-        # Insertar pasos de la receta
-        for orden, nombre_proceso in receta_def["pasos"]:
+        # Insertar pasos de la receta CON parámetros
+        for paso_tupla in receta_def["pasos"]:
+            orden, nombre_proceso, temp, tiempo, vel, instr = paso_tupla
             id_proceso = procesos_por_nombre.get(nombre_proceso)
             if id_proceso is None:
                 raise ValueError(f"Proceso de fábrica '{nombre_proceso}' no encontrado al crear recetas base.")
+            
             cur.execute(
                 """
-                INSERT INTO pasos_receta_base (id_receta, id_proceso, orden)
-                VALUES (?, ?, ?);
+                INSERT INTO pasos_receta_base 
+                    (id_receta, id_proceso, orden, temperatura, tiempo_segundos, velocidad, instrucciones)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
                 """,
-                (id_receta, id_proceso, orden),
+                (id_receta, id_proceso, orden, temp, tiempo, vel, instr),
             )
 
     conn.commit()

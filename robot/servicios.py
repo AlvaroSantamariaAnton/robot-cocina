@@ -13,18 +13,15 @@ from data.init_db import conectar, reinicio_fabrica, inicializar_bd
 def _fila_a_proceso_base(fila: Tuple) -> ProcesoCocina:
     """
     Convierte una fila de procesos_base a un objeto ProcesoCocina.
-    Estructura de fila: (id, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad)
+    Estructura de fila: (id, nombre, tipo, tipo_ejecucion, instrucciones)
     """
-    id_, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad = fila
+    id_, nombre, tipo, tipo_ejecucion, instrucciones = fila
     return ProcesoCocina(
         id_=id_,
         nombre=nombre,
         tipo=tipo,
         tipo_ejecucion=tipo_ejecucion,
         instrucciones=instrucciones,
-        temperatura=temperatura,
-        tiempo_segundos=tiempo_segundos,
-        velocidad=velocidad,
         origen="base",
     )
 
@@ -32,18 +29,15 @@ def _fila_a_proceso_base(fila: Tuple) -> ProcesoCocina:
 def _fila_a_proceso_usuario(fila: Tuple) -> ProcesoCocina:
     """
     Convierte una fila de procesos_usuario a un objeto ProcesoCocina.
-    Estructura de fila: (id, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad)
+    Estructura de fila: (id, nombre, tipo, tipo_ejecucion, instrucciones)
     """
-    id_, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad = fila
+    id_, nombre, tipo, tipo_ejecucion, instrucciones = fila
     return ProcesoCocina(
         id_=id_,
         nombre=nombre,
         tipo=tipo,
         tipo_ejecucion=tipo_ejecucion,
         instrucciones=instrucciones,
-        temperatura=temperatura,
-        tiempo_segundos=tiempo_segundos,
-        velocidad=velocidad,
         origen="usuario",
     )
 
@@ -61,7 +55,7 @@ def cargar_procesos_base() -> List[ProcesoCocina]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad
+            SELECT id, nombre, tipo, tipo_ejecucion, instrucciones
             FROM procesos_base
             ORDER BY id;
             """
@@ -81,7 +75,7 @@ def cargar_procesos_usuario() -> List[ProcesoCocina]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad
+            SELECT id, nombre, tipo, tipo_ejecucion, instrucciones
             FROM procesos_usuario
             ORDER BY id;
             """
@@ -101,7 +95,7 @@ def obtener_proceso_base_por_id(id_proceso: int) -> Optional[ProcesoCocina]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad
+            SELECT id, nombre, tipo, tipo_ejecucion, instrucciones
             FROM procesos_base
             WHERE id = ?;
             """,
@@ -124,7 +118,7 @@ def obtener_proceso_usuario_por_id(id_proceso: int) -> Optional[ProcesoCocina]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad
+            SELECT id, nombre, tipo, tipo_ejecucion, instrucciones
             FROM procesos_usuario
             WHERE id = ?;
             """,
@@ -143,12 +137,13 @@ def crear_proceso_usuario(
     tipo: str,
     tipo_ejecucion: str,
     instrucciones: str,
-    temperatura: int,
-    tiempo_segundos: int,
-    velocidad: int,
 ) -> ProcesoCocina:
     """
     Crea un nuevo proceso en la tabla procesos_usuario y devuelve el objeto ProcesoCocina.
+    
+    CAMBIO: Ya NO acepta temperatura, tiempo_segundos, velocidad.
+    Esos parámetros ahora van en los pasos de las recetas.
+    
     No se comprueba aquí nombres duplicados: esto se controla en la capa de UI.
     """
     conn = conectar()
@@ -156,10 +151,10 @@ def crear_proceso_usuario(
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO procesos_usuario (nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad)
-            VALUES (?, ?, ?, ?, ?, ?, ?);
+            INSERT INTO procesos_usuario (nombre, tipo, tipo_ejecucion, instrucciones)
+            VALUES (?, ?, ?, ?);
             """,
-            (nombre, tipo, tipo_ejecucion, instrucciones, temperatura, tiempo_segundos, velocidad),
+            (nombre, tipo, tipo_ejecucion, instrucciones),
         )
         id_nuevo = cur.lastrowid
         conn.commit()
@@ -169,9 +164,6 @@ def crear_proceso_usuario(
             tipo=tipo,
             tipo_ejecucion=tipo_ejecucion,
             instrucciones=instrucciones,
-            temperatura=temperatura,
-            tiempo_segundos=tiempo_segundos,
-            velocidad=velocidad,
             origen="usuario",
         )
     finally:
@@ -219,6 +211,10 @@ def _cargar_recetas_generico(
 ) -> List[Receta]:
     """
     Función interna para cargar recetas y convertirlas en objetos Receta.
+    
+    CAMBIO IMPORTANTE: Ahora lee temperatura, tiempo_segundos, velocidad, instrucciones
+    desde las tablas de PASOS, no de PROCESOS.
+    
     Parámetros:
         tabla_recetas: 'recetas_base' o 'recetas_usuario'
         tabla_pasos: 'pasos_receta_base' o 'pasos_receta_usuario'
@@ -251,14 +247,15 @@ def _cargar_recetas_generico(
                 f"""
                 SELECT p.id_receta,
                        p.orden,
+                       p.temperatura,
+                       p.tiempo_segundos,
+                       p.velocidad,
+                       p.instrucciones,
                        COALESCE(pr_user.id, pr_base.id) as id,
                        COALESCE(pr_user.nombre, pr_base.nombre) as nombre,
                        COALESCE(pr_user.tipo, pr_base.tipo) as tipo,
                        COALESCE(pr_user.tipo_ejecucion, pr_base.tipo_ejecucion) as tipo_ejecucion,
-                       COALESCE(pr_user.instrucciones, pr_base.instrucciones) as instrucciones,
-                       COALESCE(pr_user.temperatura, pr_base.temperatura) as temperatura,
-                       COALESCE(pr_user.tiempo_segundos, pr_base.tiempo_segundos) as tiempo_segundos,
-                       COALESCE(pr_user.velocidad, pr_base.velocidad) as velocidad,
+                       COALESCE(pr_user.instrucciones, pr_base.instrucciones) as proc_instrucciones,
                        CASE WHEN pr_user.id IS NOT NULL THEN 'usuario' ELSE 'base' END as origen
                 FROM {tabla_pasos} AS p
                 LEFT JOIN procesos_usuario AS pr_user
@@ -274,19 +271,25 @@ def _cargar_recetas_generico(
             # Procesar con origen dinámico
             pasos_por_receta: Dict[int, List[PasoReceta]] = {}
             for fila in filas_pasos:
-                id_receta, orden, pid, pnombre, ptipo, ptipo_ej, pinstr, ptemp, ptiempo, pvel, origen_proc = fila
+                (id_receta, orden, paso_temp, paso_tiempo, paso_vel, paso_instr,
+                 pid, pnombre, ptipo, ptipo_ej, proc_instr, origen_proc) = fila
+                
                 proceso = ProcesoCocina(
                     id_=pid,
                     nombre=pnombre,
                     tipo=ptipo,
                     tipo_ejecucion=ptipo_ej,
-                    instrucciones=pinstr,
-                    temperatura=ptemp,
-                    tiempo_segundos=ptiempo,
-                    velocidad=pvel,
+                    instrucciones=proc_instr,
                     origen=origen_proc,
                 )
-                paso = PasoReceta(orden=orden, proceso=proceso)
+                paso = PasoReceta(
+                    orden=orden,
+                    proceso=proceso,
+                    temperatura=paso_temp,
+                    tiempo_segundos=paso_tiempo,
+                    velocidad=paso_vel,
+                    instrucciones=paso_instr,
+                )
                 pasos_por_receta.setdefault(id_receta, []).append(paso)
         else:
             # Recetas de base: solo buscar en procesos_base
@@ -294,14 +297,15 @@ def _cargar_recetas_generico(
                 f"""
                 SELECT p.id_receta,
                        p.orden,
+                       p.temperatura,
+                       p.tiempo_segundos,
+                       p.velocidad,
+                       p.instrucciones,
                        pr.id,
                        pr.nombre,
                        pr.tipo,
                        pr.tipo_ejecucion,
-                       pr.instrucciones,
-                       pr.temperatura,
-                       pr.tiempo_segundos,
-                       pr.velocidad
+                       pr.instrucciones
                 FROM {tabla_pasos} AS p
                 JOIN {tabla_procesos} AS pr
                     ON p.id_proceso = pr.id
@@ -313,19 +317,25 @@ def _cargar_recetas_generico(
             filas_pasos = cur.fetchall()
             pasos_por_receta: Dict[int, List[PasoReceta]] = {}
             for fila in filas_pasos:
-                id_receta, orden, pid, pnombre, ptipo, ptipo_ej, pinstr, ptemp, ptiempo, pvel = fila
+                (id_receta, orden, paso_temp, paso_tiempo, paso_vel, paso_instr,
+                 pid, pnombre, ptipo, ptipo_ej, proc_instr) = fila
+                
                 proceso = ProcesoCocina(
                     id_=pid,
                     nombre=pnombre,
                     tipo=ptipo,
                     tipo_ejecucion=ptipo_ej,
-                    instrucciones=pinstr,
-                    temperatura=ptemp,
-                    tiempo_segundos=ptiempo,
-                    velocidad=pvel,
+                    instrucciones=proc_instr,
                     origen=origen,
                 )
-                paso = PasoReceta(orden=orden, proceso=proceso)
+                paso = PasoReceta(
+                    orden=orden,
+                    proceso=proceso,
+                    temperatura=paso_temp,
+                    tiempo_segundos=paso_tiempo,
+                    velocidad=paso_vel,
+                    instrucciones=paso_instr,
+                )
                 pasos_por_receta.setdefault(id_receta, []).append(paso)
 
         # 3) Construir objetos Receta
@@ -387,20 +397,25 @@ def crear_receta_usuario(
     nombre: str,
     descripcion: str,
     ingredientes: List[Dict[str, Any]],
-    pasos: List[Tuple[int, int]],
+    pasos: List[Tuple[int, int, Optional[int], Optional[int], Optional[int], Optional[str]]],
 ) -> Receta:
     """
     Crea una nueva receta de usuario.
+
+    CAMBIO IMPORTANTE: Ahora acepta pasos con parámetros de ejecución.
 
     Parámetros:
         nombre: nombre de la receta
         descripcion: texto descriptivo
         ingredientes: lista de dicts con {nombre, cantidad, unidad, nota}
-        pasos: lista de tuplas (orden, id_proceso_usuario)
-               por ejemplo: [(1, 3), (2, 5), (3, 7)]
+        pasos: lista de tuplas (orden, id_proceso, temperatura, tiempo_segundos, velocidad, instrucciones)
+               por ejemplo: [
+                   (1, 3, None, None, None, "Añadir ingredientes secos"),  # Manual
+                   (2, 5, 100, 180, 2, None),  # Automático
+               ]
 
     Devuelve:
-        Objeto Receta con sus pasos (cada paso incluye ProcesoCocina origen='usuario').
+        Objeto Receta con sus pasos (cada paso incluye ProcesoCocina origen='usuario' o 'base').
     """
     conn = conectar()
     try:
@@ -419,14 +434,15 @@ def crear_receta_usuario(
         )
         id_receta = cur.lastrowid
 
-        # Insertar los pasos
-        for orden, id_proceso in pasos:
+        # Insertar los pasos CON parámetros
+        for orden, id_proceso, temp, tiempo, vel, instr in pasos:
             cur.execute(
                 """
-                INSERT INTO pasos_receta_usuario (id_receta, id_proceso, orden)
-                VALUES (?, ?, ?);
+                INSERT INTO pasos_receta_usuario 
+                    (id_receta, id_proceso, orden, temperatura, tiempo_segundos, velocidad, instrucciones)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
                 """,
-                (id_receta, id_proceso, orden),
+                (id_receta, id_proceso, orden, temp, tiempo, vel, instr),
             )
 
         conn.commit()
@@ -448,14 +464,15 @@ def crear_receta_usuario(
         cur.execute(
             """
             SELECT p.orden,
+                   p.temperatura,
+                   p.tiempo_segundos,
+                   p.velocidad,
+                   p.instrucciones,
                    COALESCE(pr_user.id, pr_base.id) as id,
                    COALESCE(pr_user.nombre, pr_base.nombre) as nombre,
                    COALESCE(pr_user.tipo, pr_base.tipo) as tipo,
                    COALESCE(pr_user.tipo_ejecucion, pr_base.tipo_ejecucion) as tipo_ejecucion,
-                   COALESCE(pr_user.instrucciones, pr_base.instrucciones) as instrucciones,
-                   COALESCE(pr_user.temperatura, pr_base.temperatura) as temperatura,
-                   COALESCE(pr_user.tiempo_segundos, pr_base.tiempo_segundos) as tiempo_segundos,
-                   COALESCE(pr_user.velocidad, pr_base.velocidad) as velocidad,
+                   COALESCE(pr_user.instrucciones, pr_base.instrucciones) as proc_instrucciones,
                    CASE WHEN pr_user.id IS NOT NULL THEN 'usuario' ELSE 'base' END as origen
             FROM pasos_receta_usuario AS p
             LEFT JOIN procesos_usuario AS pr_user
@@ -471,19 +488,27 @@ def crear_receta_usuario(
 
         pasos_obj: List[PasoReceta] = []
         for fila in filas_pasos:
-            orden, pid, pnombre, ptipo, ptipo_ej, pinstr, ptemp, ptiempo, pvel, origen = fila
+            (orden, paso_temp, paso_tiempo, paso_vel, paso_instr,
+             pid, pnombre, ptipo, ptipo_ej, proc_instr, origen) = fila
+            
             proceso = ProcesoCocina(
                 id_=pid,
                 nombre=pnombre,
                 tipo=ptipo,
                 tipo_ejecucion=ptipo_ej,
-                instrucciones=pinstr,
-                temperatura=ptemp,
-                tiempo_segundos=ptiempo,
-                velocidad=pvel,
+                instrucciones=proc_instr,
                 origen=origen,
             )
-            pasos_obj.append(PasoReceta(orden=orden, proceso=proceso))
+            pasos_obj.append(
+                PasoReceta(
+                    orden=orden,
+                    proceso=proceso,
+                    temperatura=paso_temp,
+                    tiempo_segundos=paso_tiempo,
+                    velocidad=paso_vel,
+                    instrucciones=paso_instr,
+                )
+            )
 
         # Parsear ingredientes
         ingredientes_parsed = []

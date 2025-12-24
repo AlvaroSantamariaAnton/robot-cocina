@@ -156,6 +156,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
         return etiquetas
     
     def calcular_tiempo_estimado(receta):
+        """Calcula el tiempo estimado de una receta usando los parámetros del PASO."""
         tiempo_total_segundos = 0
         pasos_manuales = 0
 
@@ -163,7 +164,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
             if paso.proceso.es_manual():
                 pasos_manuales += 1
             else:
-                tiempo_total_segundos += paso.proceso.tiempo_segundos
+                # CAMBIO: Ahora usamos paso.tiempo_segundos en lugar de proceso.tiempo_segundos
+                tiempo_total_segundos += paso.tiempo_segundos or 0
 
         if tiempo_total_segundos <= 0:
             return None
@@ -893,6 +895,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 ui.notify('Recetas actualizadas', type='info')
 
             def on_cambio_receta(e):
+                """Maneja el cambio de receta seleccionada."""
                 label = e.value
                 seleccion['label_receta'] = label
                 ULTIMA_RECETA_SELECCIONADA['label'] = label
@@ -908,6 +911,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     else:
                         tiempo_row.set_visibility(False)
                     
+                    # Mostrar ingredientes
                     if getattr(receta, 'ingredientes', None):
                         html_ings = '<div class="space-y-2">'
                         for ing in receta.ingredientes:
@@ -924,20 +928,42 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     else:
                         ingredientes_expansion.set_visibility(False)
                     
-                    # Mostrar pasos de la receta
+                    # ========== MOSTRAR PASOS CON PARÁMETROS DEL PASO ==========
+                    # CAMBIO: Mostrar parámetros desde paso.*, no proceso.*
                     if getattr(receta, 'pasos', None):
+                        from utils.utils_tiempo import segundos_a_mmss
+                        
                         html_pasos = '<div class="space-y-3">'
                         for paso in receta.pasos:
-                            tipo_badge = ('<span class="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 px-2 py-1 rounded text-xs,'
-                            'font-semibold">Manual</span>' if paso.proceso.es_manual() else '<span class="bg-green-100 text-green-700 dark:bg-green-900,'
-                            'dark:text-green-300 px-2 py-1 rounded text-xs font-semibold">Automático</span>')
+                            tipo_badge = (
+                                '<span class="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 '
+                                'px-2 py-1 rounded text-xs font-semibold">Manual</span>' 
+                                if paso.proceso.es_manual() 
+                                else '<span class="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 '
+                                'px-2 py-1 rounded text-xs font-semibold">Automático</span>'
+                            )
+                            
                             html_pasos += f'<div class="border-l-4 border-indigo-500 pl-4 py-2">'
                             html_pasos += f'<div class="flex items-center gap-2 mb-1">'
                             html_pasos += f'<span class="font-bold text-indigo-600 dark:text-indigo-400">Paso {paso.orden}:</span> {tipo_badge}'
                             html_pasos += f'</div>'
                             html_pasos += f'<div class="font-medium">{paso.proceso.nombre}</div>'
-                            if paso.proceso.es_manual() and hasattr(paso.proceso, 'instrucciones'):
-                                html_pasos += f'<div class="text-sm text-gray-600 dark:text-gray-400 italic mt-1">{paso.proceso.instrucciones}</div>'
+                            
+                            # CAMBIO: Mostrar parámetros del PASO
+                            if paso.proceso.es_manual():
+                                # Paso manual: mostrar instrucciones
+                                instr = paso.instrucciones or paso.proceso.instrucciones or ""
+                                if instr:
+                                    html_pasos += f'<div class="text-sm text-gray-600 dark:text-gray-400 italic mt-1">📝 {instr}</div>'
+                            else:
+                                # Paso automático: mostrar parámetros del PASO
+                                temp = paso.temperatura if paso.temperatura is not None else 0
+                                tiempo = paso.tiempo_segundos if paso.tiempo_segundos is not None else 0
+                                vel = paso.velocidad if paso.velocidad is not None else 0
+                                
+                                params = f"🌡️ {temp}°C · ⏱️ {segundos_a_mmss(tiempo)} · ⚡ Vel {vel}"
+                                html_pasos += f'<div class="text-sm text-gray-600 dark:text-gray-400 mt-1">{params}</div>'
+                            
                             html_pasos += f'</div>'
                         html_pasos += '</div>'
                         pasos_lista.set_content(html_pasos)
@@ -1078,7 +1104,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 boton_pausar.set_enabled(not robot_apagado)
                 boton_cancelar.set_enabled(not robot_apagado)
 
-                # Paso actual - NO tocar el nombre de receta aquí, solo gestionar pasos durante cocción
+                # Paso actual
                 receta = robot.receta_actual
                 if receta:
                     # Solo actualizar nombre si hay cocción activa
@@ -1095,7 +1121,9 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                                 if paso.proceso.es_manual():
                                     # Paso MANUAL
-                                    instrucciones_label.text = paso.proceso.instrucciones
+                                    # CAMBIO: Usar paso.instrucciones con fallback a proceso.instrucciones
+                                    instrucciones_texto = paso.instrucciones or paso.proceso.instrucciones or "Sin instrucciones"
+                                    instrucciones_label.text = instrucciones_texto
                                     paso_card.set_visibility(True)
                                     paso_auto_card.set_visibility(False)
                                 else:
@@ -1191,22 +1219,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 origen_texto = 'Fábrica' if proceso.origen == 'base' else 'Usuario'
                                 ui.label(origen_texto).classes('text-gray-600 dark:text-gray-400')
                         
-                        # Parámetros (solo si es automático)
-                        if not proceso.es_manual():
-                            ui.separator()
-                            ui.label('Parámetros:').classes('text-lg font-bold')
-                            with ui.column().classes('gap-2 ml-4'):
-                                with ui.row().classes('items-center gap-2'):
-                                    ui.icon('thermostat', size='sm').classes('text-red-500 dark:text-red-400')
-                                    ui.label(f'Temperatura: {proceso.temperatura}°C')
-                                
-                                with ui.row().classes('items-center gap-2'):
-                                    ui.icon('schedule', size='sm').classes('text-blue-500 dark:text-blue-400')
-                                    ui.label(f'Tiempo: {segundos_a_mmss(proceso.tiempo_segundos)}')
-                                
-                                with ui.row().classes('items-center gap-2'):
-                                    ui.icon('speed', size='sm').classes('text-green-500 dark:text-green-400')
-                                    ui.label(f'Velocidad: {proceso.velocidad}')
+                        # CAMBIO: Ya NO se muestran parámetros numéricos
+                        # Solo mostramos instrucciones si existen
                         
                         # Instrucciones (si existen)
                         if proceso.instrucciones:
@@ -1268,9 +1282,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             {'name': 'nombre', 'label': 'Nombre', 'field': 'nombre', 'align': 'left'},
                             {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo', 'align': 'left'},
                             {'name': 'tipo_ej', 'label': 'Tipo de Ejecución', 'field': 'tipo_ej', 'align': 'left'},
-                            {'name': 'temp', 'label': 'Temp', 'field': 'temp', 'align': 'right'},
-                            {'name': 'tiempo', 'label': 'Tiempo (MM:SS)', 'field': 'tiempo', 'align': 'right'},
-                            {'name': 'vel', 'label': 'Vel', 'field': 'vel', 'align': 'right'},
                         ],
                         rows=[],
                         row_key='nombre'
@@ -1302,22 +1313,22 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ui.icon('add_box', size='lg').classes('text-blue-600 dark:text-blue-400')
                         ui.label('Crear Nuevo Proceso').classes('text-2xl font-bold text-gray-800 dark:text-white')
 
+                    # ========== INPUTS DEL FORMULARIO ==========
+                    # CAMBIO: Solo 4 inputs (sin temperatura, tiempo, velocidad)
                     with ui.grid(columns=2).classes('w-full gap-4'):
                         input_nombre = ui.input('Nombre').props('outlined dense').classes('col-span-2')
                         input_tipo = ui.input('Tipo (ej: Preparación, Cocción)').props('outlined dense')
-                        select_tipo_ej = ui.select(['Manual', 'Automático'], label='Tipo de Ejecución', value=None).props('outlined dense')
+                        select_tipo_ej = ui.select(
+                            ['Manual', 'Automático'], 
+                            label='Tipo de Ejecución', 
+                            value=None
+                        ).props('outlined dense')
                         input_instrucciones = ui.textarea('Instrucciones (opcional)').props('outlined').classes('col-span-2')
-                        input_temp = ui.number('Temperatura (0-120ºC)', min=0, max=120).props('outlined dense')
-                        input_tiempo = ui.input(
-                            label='Tiempo (MM:SS)',
-                            placeholder='00:00'
-                        ).props(
-                            'outlined dense mask="##:##"'
-                        ).classes('w-full')
-                        input_velocidad = ui.number('Velocidad (0-10)', min=0, max=10).props('outlined dense')
 
+                    # ========== FUNCIÓN CREAR PROCESO ==========
                     def crear_proceso():
-                        # Validaciones primero (fuera del try-except)
+                        """Crea un nuevo proceso SIN parámetros de ejecución."""
+                        # Validaciones
                         nombre = (input_nombre.value or '').strip()
                         tipo = (input_tipo.value or '').strip() or "generico"
                         tipo_ej = select_tipo_ej.value
@@ -1334,29 +1345,30 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         # Convertir tipo de ejecución a formato de BD
                         tipo_ej_bd = 'manual' if tipo_ej == 'Manual' else 'automatico'
                         
-                        # Crear proceso
+                        # CAMBIO: Crear proceso sin parámetros numéricos
                         try:
-                            tiempo_segundos = mmss_a_segundos(input_tiempo.value)
-
                             servicios.crear_proceso_usuario(
                                 nombre=nombre,
                                 tipo=tipo,
                                 tipo_ejecucion=tipo_ej_bd,
                                 instrucciones=instrucciones,
-                                temperatura=int(input_temp.value or 0),
-                                tiempo_segundos=tiempo_segundos,
-                                velocidad=int(input_velocidad.value or 0),
                             )
 
                             ui.notify('Proceso creado', type='positive')
+                            
+                            # Limpiar inputs
                             input_nombre.value = ''
                             input_tipo.value = ''
                             select_tipo_ej.value = None
                             input_instrucciones.value = ''
+                            
+                            # Refrescar tabla de procesos
                             refrescar_procesos()
+                            
                         except Exception as ex:
                             ui.notify(f'Error: {ex}', type='negative')
 
+                    # ========== BOTÓN GUARDAR ==========
                     ui.button('GUARDAR PROCESO', on_click=crear_proceso).props(
                         'unelevated color=blue size=lg icon=save'
                     ).classes('w-full')
@@ -1375,9 +1387,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             {'name': 'nombre', 'label': 'Nombre', 'field': 'nombre', 'align': 'left'},
                             {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo', 'align': 'left'},
                             {'name': 'tipo_ej', 'label': 'Tipo de Ejecución', 'field': 'tipo_ej', 'align': 'left'},
-                            {'name': 'temp', 'label': 'Temp', 'field': 'temp', 'align': 'right'},
-                            {'name': 'tiempo', 'label': 'Tiempo (MM:SS)', 'field': 'tiempo', 'align': 'right'},
-                            {'name': 'vel', 'label': 'Vel', 'field': 'vel', 'align': 'right'},
                         ],
                         rows=[],
                         row_key='nombre'
@@ -1403,26 +1412,30 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             boton_expandir_usuario.text = 'Mostrar todos los procesos'
                         boton_expandir_usuario.update()
 
+            # ========== FUNCIÓN REFRESCAR PROCESOS ==========
             def refrescar_procesos():
+                """Carga los procesos y actualiza las tablas SIN datos numéricos."""
+                
+                # Procesos base
                 procs_base = servicios.cargar_procesos_base()
                 procesos_base_map.clear()
                 
                 # Limitar a 10 si no se ha expandido
                 procs_base_a_mostrar = procs_base if mostrar_todos_base['value'] else procs_base[:10]
                 
+                # CAMBIO: Sin columnas numéricas
                 tabla_base.rows = [
                     {
                         'nombre': p.nombre,
                         'tipo': p.tipo.capitalize(),
                         'tipo_ej': 'Manual' if p.es_manual() else 'Automático',
-                        'temp': f'{p.temperatura}º' if p.tipo_ejecucion == 'automatico' else '-',
-                        'tiempo': f'{segundos_a_mmss(p.tiempo_segundos)}' if p.tipo_ejecucion == 'automatico' else '-',
-                        'vel': p.velocidad if p.tipo_ejecucion == 'automatico' else '-',
                     }
                     for p in procs_base_a_mostrar
                 ]
+                
                 for p in procs_base:
                     procesos_base_map[p.nombre] = p
+                
                 tabla_base.update()
                 
                 # Actualizar visibilidad del botón de fábrica
@@ -1432,22 +1445,22 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 else:
                     boton_expandir_base.set_visibility(False)
 
+                # Procesos usuario
                 procs_user = servicios.cargar_procesos_usuario()
                 
                 # Limitar a 10 si no se ha expandido
                 procs_user_a_mostrar = procs_user if mostrar_todos_usuario['value'] else procs_user[:10]
                 
+                # CAMBIO: Sin columnas numéricas
                 tabla_usuario.rows = [
                     {
                         'nombre': p.nombre,
                         'tipo': p.tipo.capitalize(),
                         'tipo_ej': 'Manual' if p.es_manual() else 'Automático',
-                        'temp': f'{p.temperatura}º' if p.tipo_ejecucion == 'automatico' else '-',
-                        'tiempo': f'{segundos_a_mmss(p.tiempo_segundos)}' if p.tipo_ejecucion == 'automatico' else '-',
-                        'vel': p.velocidad if p.tipo_ejecucion == 'automatico' else '-',
                     }
                     for p in procs_user_a_mostrar
                 ]
+                
                 tabla_usuario.update()
 
                 procesos_map.clear()
@@ -1586,25 +1599,98 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         select_proc = ui.select([], label='Seleccionar proceso...').props('outlined dense').classes('flex-1')
                         ui.button(icon='add', on_click=lambda: anadir_paso()).props('fab-mini color=green').tooltip('Añadir')
 
+                        # NUEVO: Contenedor para inputs condicionales de parámetros
+                        params_container = ui.column().classes('w-full gap-2 mt-2')
+
+                        # NUEVO: Estado para los inputs de parámetros
+                        params_state = {
+                            'temp': None,
+                            'tiempo': None,
+                            'vel': None,
+                            'instr': None
+                        }
+
+                        def actualizar_inputs_parametros(proceso_label):
+                            """Muestra u oculta inputs según el tipo de proceso seleccionado."""
+                            params_container.clear()
+                            
+                            if not proceso_label:
+                                return
+                            
+                            proceso = procesos_map.get(proceso_label)
+                            if not proceso:
+                                return
+                            
+                            with params_container:
+                                if proceso.es_manual():
+                                    # Proceso MANUAL: solo pedir instrucciones
+                                    ui.label('Instrucciones para este paso:').classes('text-sm font-bold text-gray-700 dark:text-gray-300')
+                                    params_state['instr'] = ui.textarea(
+                                        'Escribe las instrucciones específicas para este paso'
+                                    ).props('outlined dense').classes('w-full')
+                                    
+                                    # Resetear numéricos
+                                    params_state['temp'] = None
+                                    params_state['tiempo'] = None
+                                    params_state['vel'] = None
+                                else:
+                                    # Proceso AUTOMÁTICO: pedir temp, tiempo, velocidad
+                                    ui.label('Parámetros de ejecución:').classes('text-sm font-bold text-gray-700 dark:text-gray-300')
+                                    
+                                    with ui.row().classes('w-full gap-2 items-end'):
+                                        params_state['temp'] = ui.number(
+                                            'Temperatura (°C)',
+                                            min=0,
+                                            max=120,
+                                            value=0
+                                        ).props('outlined dense').classes('flex-1')
+                                        
+                                        params_state['tiempo'] = ui.input(
+                                            label='Tiempo (MM:SS)',
+                                            placeholder='00:00'
+                                        ).props('outlined dense mask="##:##"').classes('flex-1')
+                                        
+                                        params_state['vel'] = ui.number(
+                                            'Velocidad',
+                                            min=0,
+                                            max=10,
+                                            value=0
+                                        ).props('outlined dense').classes('flex-1')
+                                    
+                                    # Resetear instrucciones
+                                    params_state['instr'] = None
+
+                        # Conectar el cambio de proceso a la función
+                        select_proc.on_value_change(lambda e: actualizar_inputs_parametros(e.value))
+
                     tabla_pasos = ui.table(
                         columns=[
                             {'name': 'ord', 'label': '#', 'field': 'ord'},
                             {'name': 'nom', 'label': 'Proceso', 'field': 'nom'},
                             {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo'},
+                            {'name': 'params', 'label': 'Parámetros', 'field': 'params'},  # NUEVO
                             {'name': 'acciones', 'label': 'Acciones', 'field': 'acciones'},
                         ],
                         rows=[]
                     ).props('flat dense').classes('w-full')
 
                     def actualizar_tabla_pasos():
+                        """Muestra los pasos con sus parámetros."""
+                        from utils.utils_tiempo import segundos_a_mmss
+                        
                         tabla_pasos.rows = [
                             {
-                                'ord': idx + 1,
-                                'nom': p.nombre,
-                                'tipo': 'Manual' if p.es_manual() else 'Automático',
-                                'idx': idx  # <-- Necesario para el botón de eliminar
+                                'ord': paso_dict['orden'],
+                                'nom': paso_dict['proceso'].nombre,
+                                'tipo': 'Manual' if paso_dict['proceso'].es_manual() else 'Automático',
+                                'params': (
+                                    f"📝 {paso_dict['instr'][:30]}..." if paso_dict['instr']
+                                    else f"🌡️{paso_dict['temp']}° ⏱️{segundos_a_mmss(paso_dict['tiempo'])} ⚡{paso_dict['vel']}"
+                                    if paso_dict['tiempo'] else '-'
+                                ),
+                                'idx': idx
                             }
-                            for idx, (_, p) in enumerate(pasos_temp)
+                            for idx, paso_dict in enumerate(pasos_temp)
                         ]
                         tabla_pasos.update()
 
@@ -1627,13 +1713,74 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     tabla_pasos.on('eliminar', lambda e: eliminar_paso(e.args))
 
                     def anadir_paso():
+                        """Añade un paso CON sus parámetros de ejecución."""
                         if not select_proc.value:
                             ui.notify('Selecciona un proceso', type='warning')
                             return
+                        
                         proc = procesos_map.get(select_proc.value)
-                        if proc:
-                            pasos_temp.append((len(pasos_temp) + 1, proc))
-                            actualizar_tabla_pasos()  # <-- Usamos la función que asigna idx
+                        if not proc:
+                            return
+                        
+                        # CAMBIO: Recoger parámetros según tipo de proceso
+                        if proc.es_manual():
+                            # Manual: solo instrucciones
+                            instr = params_state['instr'].value if params_state['instr'] else None
+                            if not instr or not instr.strip():
+                                ui.notify('Las instrucciones son obligatorias para pasos manuales', type='warning')
+                                return
+                            
+                            pasos_temp.append({
+                                'orden': len(pasos_temp) + 1,
+                                'proceso': proc,
+                                'temp': None,
+                                'tiempo': None,
+                                'vel': None,
+                                'instr': instr.strip()
+                            })
+                        else:
+                            # Automático: temperatura, tiempo, velocidad
+                            try:
+                                temp = int(params_state['temp'].value or 0)
+                                tiempo_str = params_state['tiempo'].value
+                                vel = int(params_state['vel'].value or 0)
+                                
+                                # Validar tiempo
+                                if not tiempo_str or tiempo_str.strip() == '':
+                                    ui.notify('El tiempo es obligatorio para pasos automáticos', type='warning')
+                                    return
+                                
+                                from utils.utils_tiempo import mmss_a_segundos
+                                tiempo_seg = mmss_a_segundos(tiempo_str)
+                                
+                                # Validaciones
+                                if temp < 0 or temp > 120:
+                                    ui.notify('Temperatura debe estar entre 0 y 120°C', type='warning')
+                                    return
+                                if tiempo_seg < 1:
+                                    ui.notify('El tiempo debe ser mayor a 0', type='warning')
+                                    return
+                                if vel < 0 or vel > 10:
+                                    ui.notify('Velocidad debe estar entre 0 y 10', type='warning')
+                                    return
+                                
+                                pasos_temp.append({
+                                    'orden': len(pasos_temp) + 1,
+                                    'proceso': proc,
+                                    'temp': temp,
+                                    'tiempo': tiempo_seg,
+                                    'vel': vel,
+                                    'instr': None
+                                })
+                            except Exception as ex:
+                                ui.notify(f'Error en parámetros: {ex}', type='negative')
+                                return
+                        
+                        actualizar_tabla_pasos()
+                        
+                        # Limpiar inputs
+                        select_proc.value = None
+                        params_container.clear()
 
                     def crear_receta():
                         nombre = (input_nombre_receta.value or '').strip()
@@ -1649,16 +1796,18 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             return
 
                         try:
+                            # CAMBIO: Enviar parámetros con cada paso
                             pasos_guardar = []
-                            for orden, proc in pasos_temp:
-                                # Usar directamente el ID del proceso, sea de base o de usuario
-                                pasos_guardar.append((orden, proc.id))
+                            for paso_dict in pasos_temp:
+                                pasos_guardar.append((
+                                    paso_dict['orden'],
+                                    paso_dict['proceso'].id,
+                                    paso_dict['temp'],
+                                    paso_dict['tiempo'],
+                                    paso_dict['vel'],
+                                    paso_dict['instr']
+                                ))
                             
-                            # Verificación final antes de guardar
-                            if len(pasos_guardar) == 0:
-                                ui.notify('Error: No se pudieron procesar los pasos', type='negative')
-                                return
-
                             servicios.crear_receta_usuario(
                                 nombre=nombre,
                                 descripcion=desc,
@@ -1692,19 +1841,23 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     recetas_user_grid = ui.row().classes('w-full gap-4 flex-wrap')
 
             def mostrar_detalle_receta(receta):
+                """Muestra el detalle de una receta con parámetros del PASO."""
                 with ui.dialog() as dlg, ui.card().classes('max-w-2xl overflow-x-hidden').props('lang=es'):
                     with ui.column().classes('p-6 gap-4'):
+                        # Título y descripción
                         ui.label(receta.nombre).classes('text-3xl font-bold whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
                         ui.label(receta.descripcion).classes('text-gray-600 dark:text-gray-400 whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
 
-                        # Calcular tiempo estimado
+                        # ========== CALCULAR TIEMPO ESTIMADO ==========
+                        # CAMBIO: Usar paso.tiempo_segundos en lugar de proceso.tiempo_segundos
                         tiempo_total_segundos = 0
                         pasos_manuales = 0
                         for paso in receta.pasos:
                             if paso.proceso.es_manual():
                                 pasos_manuales += 1
                             else:
-                                tiempo_total_segundos += paso.proceso.tiempo_segundos
+                                # IMPORTANTE: Usar paso.tiempo_segundos
+                                tiempo_total_segundos += paso.tiempo_segundos or 0
                         
                         # Formatear tiempo
                         if tiempo_total_segundos > 0:
@@ -1726,6 +1879,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 ui.icon('schedule', size='sm').classes('text-indigo-600 dark:text-indigo-400')
                                 ui.label(f'Tiempo estimado: {tiempo_str}{nota_manual}').classes('text-sm font-medium text-gray-700 dark:text-gray-300')
 
+                        # ========== INGREDIENTES ==========
                         if receta.ingredientes:
                             with ui.row().classes('items-center justify-between'):
                                 ui.icon('shopping_cart', size='md').classes('text-blue-500 dark:text-blue-400')
@@ -1734,15 +1888,38 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 nota = f" ({ing['nota']})" if ing.get('nota') else ""
                                 ui.label(f"• {ing['nombre']}: {ing['cantidad']} {ing['unidad']}{nota}").classes('ml-4 whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
 
-                        with ui.row().classes('items-center justify-between'): 
-                            ui.icon('list', size='md').classes('text-blue-600 dark:text-blue-400')
-                            ui.label('Pasos:').classes('text-xl font-bold')
-                        for paso in receta.pasos:
-                            tipo_emoji = '(Manual)' if paso.proceso.es_manual() else '(Automático)'
-                            ui.label(f"{paso.orden}. {tipo_emoji} {paso.proceso.nombre}").classes('ml-4 font-medium')
-                            if paso.proceso.es_manual():
-                                ui.label(paso.proceso.instrucciones).classes('ml-8 text-sm text-gray-600 dark:text-gray-400 italic whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
+                        # ========== PASOS DE LA RECETA ==========
+                        # CAMBIO: Mostrar parámetros del PASO, no del proceso
+                        if receta.pasos:
+                            with ui.row().classes('items-center justify-between'): 
+                                ui.icon('list', size='md').classes('text-blue-600 dark:text-blue-400')
+                                ui.label('Pasos:').classes('text-xl font-bold')
+                            
+                            from utils.utils_tiempo import segundos_a_mmss
+                            
+                            for paso in receta.pasos:
+                                # Determinar icono según tipo
+                                tipo_emoji = '🔧' if paso.proceso.es_manual() else '⚙️'
+                                
+                                # Mostrar nombre del paso
+                                ui.label(f"{paso.orden}. {tipo_emoji} {paso.proceso.nombre}").classes('ml-4 font-medium')
+                                
+                                if paso.proceso.es_manual():
+                                    # PASO MANUAL: Mostrar instrucciones del PASO
+                                    # Usar paso.instrucciones con fallback a proceso.instrucciones
+                                    instr = paso.instrucciones or paso.proceso.instrucciones or "Sin instrucciones"
+                                    ui.label(f"📝 {instr}").classes('ml-8 text-sm text-gray-600 dark:text-gray-400 italic whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
+                                else:
+                                    # PASO AUTOMÁTICO: Mostrar parámetros del PASO
+                                    # CAMBIO: Usar paso.temperatura, paso.tiempo_segundos, paso.velocidad
+                                    temp = paso.temperatura if paso.temperatura is not None else 0
+                                    tiempo = paso.tiempo_segundos if paso.tiempo_segundos is not None else 0
+                                    vel = paso.velocidad if paso.velocidad is not None else 0
+                                    
+                                    params_texto = f"🌡️ {temp}°C · ⏱️ {segundos_a_mmss(tiempo)} · ⚡ Vel {vel}"
+                                    ui.label(params_texto).classes('ml-8 text-sm text-gray-600 dark:text-gray-400')
 
+                        # ========== BOTONES ==========
                         with ui.row().classes('w-full justify-between mt-6'):
                             ui.button('Cerrar', on_click=dlg.close).props('flat')
 

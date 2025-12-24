@@ -32,6 +32,7 @@ class ProcesoCocina:
     Representa un proceso genérico de cocina dentro del robot.
 
     Esta clase se mapea con la tabla de procesos (base o usuario) en la BD.
+    Ahora solo contiene metadatos del proceso, SIN parámetros de ejecución.
     """
 
     def __init__(
@@ -41,9 +42,6 @@ class ProcesoCocina:
         tipo: str,
         tipo_ejecucion: str,
         instrucciones: Optional[str],
-        temperatura: int,
-        tiempo_segundos: int,
-        velocidad: int,
         origen: str = "base",
     ) -> None:
         self._id = id_
@@ -51,9 +49,6 @@ class ProcesoCocina:
         self._tipo = tipo
         self._tipo_ejecucion = tipo_ejecucion  # "manual" o "automatico"
         self._instrucciones = instrucciones or ""
-        self._temperatura = temperatura
-        self._tiempo_segundos = tiempo_segundos
-        self._velocidad = velocidad
         self._origen = origen
 
     @property
@@ -77,18 +72,6 @@ class ProcesoCocina:
         return self._instrucciones
 
     @property
-    def temperatura(self) -> int:
-        return self._temperatura
-
-    @property
-    def tiempo_segundos(self) -> int:
-        return self._tiempo_segundos
-
-    @property
-    def velocidad(self) -> int:
-        return self._velocidad
-
-    @property
     def origen(self) -> str:
         return self._origen
 
@@ -97,36 +80,45 @@ class ProcesoCocina:
         return self._tipo_ejecucion == "manual"
 
     def descripcion_resumida(self) -> str:
+        """Descripción resumida del proceso (solo nombre y tipo)."""
         partes = [self._nombre]
-
         if self._tipo_ejecucion == "manual":
             partes.append("[MANUAL]")
         else:
-            if self._temperatura:
-                partes.append(f"{self._temperatura}ºC")
-
-            if self._tiempo_segundos:
-                partes.append(segundos_a_mmss(self._tiempo_segundos))
-
-            if self._velocidad:
-                partes.append(f"vel {self._velocidad}")
-
+            partes.append("[AUTOMÁTICO]")
         return " - ".join(partes)
 
     def __repr__(self) -> str:
         return (
             f"ProcesoCocina(id={self._id}, nombre={self._nombre!r}, tipo={self._tipo!r}, "
-            f"tipo_ejecucion={self._tipo_ejecucion!r}, temp={self._temperatura}, "
-            f"tiempo={self._tiempo_segundos}, velocidad={self._velocidad}, origen={self._origen!r})"
+            f"tipo_ejecucion={self._tipo_ejecucion!r}, origen={self._origen!r})"
         )
 
 
 class PasoReceta:
-    """Un paso concreto dentro de una receta (orden + proceso)."""
+    """
+    Un paso concreto dentro de una receta.
+    
+    Ahora incluye los parámetros de ejecución específicos de este paso:
+    - Para pasos automáticos: temperatura, tiempo_segundos, velocidad
+    - Para pasos manuales: instrucciones (texto libre)
+    """
 
-    def __init__(self, orden: int, proceso: ProcesoCocina) -> None:
+    def __init__(
+        self, 
+        orden: int, 
+        proceso: ProcesoCocina,
+        temperatura: Optional[int] = None,
+        tiempo_segundos: Optional[int] = None,
+        velocidad: Optional[int] = None,
+        instrucciones: Optional[str] = None,
+    ) -> None:
         self._orden = orden
         self._proceso = proceso
+        self._temperatura = temperatura
+        self._tiempo_segundos = tiempo_segundos
+        self._velocidad = velocidad
+        self._instrucciones = instrucciones
 
     @property
     def orden(self) -> int:
@@ -136,8 +128,32 @@ class PasoReceta:
     def proceso(self) -> ProcesoCocina:
         return self._proceso
 
+    @property
+    def temperatura(self) -> Optional[int]:
+        return self._temperatura
+
+    @property
+    def tiempo_segundos(self) -> Optional[int]:
+        return self._tiempo_segundos
+
+    @property
+    def velocidad(self) -> Optional[int]:
+        return self._velocidad
+
+    @property
+    def instrucciones(self) -> Optional[str]:
+        """
+        Instrucciones específicas de este paso.
+        Para pasos manuales, esto contiene el texto que se muestra al usuario.
+        """
+        return self._instrucciones
+
     def __repr__(self) -> str:
-        return f"PasoReceta(orden={self._orden}, proceso={self._proceso!r})"
+        return (
+            f"PasoReceta(orden={self._orden}, proceso={self._proceso!r}, "
+            f"temp={self._temperatura}, tiempo={self._tiempo_segundos}, "
+            f"vel={self._velocidad})"
+        )
 
 
 class Receta:
@@ -204,7 +220,7 @@ class EstadoRobot:
     ESPERA = "en_espera"
     COCINANDO = "cocinando"
     PAUSADO = "pausado"
-    ESPERANDO_CONFIRMACION = "esperando_confirmacion"  # Nuevo: esperando que usuario confirme paso manual
+    ESPERANDO_CONFIRMACION = "esperando_confirmacion"  # Esperando que usuario confirme paso manual
     ERROR = "error"
 
 
@@ -397,6 +413,8 @@ class RobotCocina:
         Guarda en qué paso y segundo va, para poder reanudar.
         
         Los pasos manuales pausan automáticamente y esperan confirmación del usuario.
+        
+        CAMBIO IMPORTANTE: Ahora usa paso.tiempo_segundos en lugar de proceso.tiempo_segundos
         """
         try:
             with self._lock:
@@ -455,7 +473,8 @@ class RobotCocina:
                     continue
 
                 # ===== PASO AUTOMÁTICO =====
-                duracion = max(1, proceso.tiempo_segundos)
+                # CAMBIO: Ahora leemos de paso.tiempo_segundos
+                duracion = max(1, paso.tiempo_segundos or 1)
 
                 # Ejecutar los "segundos" de este paso
                 while t < duracion:
