@@ -1028,6 +1028,9 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         select_receta.value = ESTADO_COMPLETADO['receta_label']
                         ULTIMA_RECETA_SELECCIONADA['label'] = ESTADO_COMPLETADO['receta_label']
 
+                    if ESTADO_COMPLETADO['receta_nombre']:
+                        completado_receta.text = ESTADO_COMPLETADO['receta_nombre']
+                    
                     completado_card.set_visibility(True)
 
                     estado_label.text = 'EN ESPERA'

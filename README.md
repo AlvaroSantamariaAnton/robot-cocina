@@ -2,25 +2,6 @@
 
 ## Bugs
 
-### Bug — El nombre de la receta desaparece en la card de “¡Receta Completada!” al cambiar de página
-```ruby
-Estás trabajando en una aplicación Python con NiceGUI que controla un RobotCocina.
-Existe una card de “¡Receta Completada!” que muestra el nombre de la receta recién finalizada.
-
-Bug actual:
-Al completarse una receta, si el usuario navega a otra página y luego vuelve al dashboard, la card de completado sigue apareciendo pero el nombre de la receta desaparece.
-
-El estado actual usa diccionarios como ESTADO_COMPLETADO y ESTADO_RECETA, y el dashboard se reconstruye al navegar.
-
-Objetivo:
-Identificar la causa exacta del problema y modificar el código para que:
-
-- El nombre de la receta completada persista correctamente al cambiar de página.
-- No se duplique estado ni se rompa el flujo actual.
-
-Dame el código final completo de las funciones/zonas que haya que modificar (no parches), listo para copiar y pegar, y explica brevemente por qué ahora funciona.
-```
-
 ### Bug — Receta con un único paso manual no muestra la card de completado
 ```ruby
 En una app NiceGUI que ejecuta recetas paso a paso en un RobotCocina, cada receta puede tener pasos manuales y automáticos.
