@@ -1192,7 +1192,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
         with ui.column().classes('p-6 max-w-7xl mx-auto gap-6'):
 
             def mostrar_detalle_proceso(proceso):
-                """Muestra un diálogo con los detalles completos del proceso."""
+                """Muestra un diálogo con los detalles del proceso (SIN instrucciones)."""
                 with ui.dialog() as dlg, ui.card().classes('max-w-xl'):
                     with ui.column().classes('p-6 gap-4'):
                         # Título
@@ -1221,15 +1221,22 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         
                         # CAMBIO: Ya NO se muestran parámetros numéricos
                         # Solo mostramos instrucciones si existen
-                        
-                        # Instrucciones (si existen)
-                        if proceso.instrucciones:
-                            ui.separator()
-                            ui.label('Instrucciones:').classes('text-lg font-bold')
-                            ui.label(proceso.instrucciones).classes(
-                                'text-gray-700 dark:text-gray-300 p-3 bg-indigo-50 dark:bg-gray-700 '
-                                'rounded-lg whitespace-normal break-words'
-                            )
+
+                        # Mensaje informativo
+                        ui.separator()
+                        with ui.card().classes('bg-blue-50 dark:bg-blue-900/20 p-3'):
+                            with ui.row().classes('items-start gap-2'):
+                                ui.icon('info', size='sm').classes('text-blue-600 dark:text-blue-400')
+                                with ui.column().classes('gap-1'):
+                                    ui.label('Plantilla de proceso').classes('font-semibold text-blue-800 dark:text-blue-300')
+                                    if proceso.es_manual():
+                                        ui.label(
+                                            'Las instrucciones específicas se definen al añadir este proceso a una receta.'
+                                        ).classes('text-sm text-blue-700 dark:text-blue-400')
+                                    else:
+                                        ui.label(
+                                            'Los parámetros (temperatura, tiempo, velocidad) se definen al añadir este proceso a una receta.'
+                                        ).classes('text-sm text-blue-700 dark:text-blue-400')
                         
                         # Botones de acción
                         with ui.row().classes('w-full justify-between mt-6'):
@@ -1323,7 +1330,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             label='Tipo de Ejecución', 
                             value=None
                         ).props('outlined dense')
-                        input_instrucciones = ui.textarea('Instrucciones (opcional)').props('outlined').classes('col-span-2')
 
                     # ========== FUNCIÓN CREAR PROCESO ==========
                     def crear_proceso():
@@ -1332,7 +1338,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         nombre = (input_nombre.value or '').strip()
                         tipo = (input_tipo.value or '').strip() or "generico"
                         tipo_ej = select_tipo_ej.value
-                        instrucciones = (input_instrucciones.value or '').strip()
                         
                         if not nombre:
                             ui.notify('El nombre es obligatorio', type='negative')
@@ -1351,7 +1356,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 nombre=nombre,
                                 tipo=tipo,
                                 tipo_ejecucion=tipo_ej_bd,
-                                instrucciones=instrucciones,
+                                instrucciones="",
                             )
 
                             ui.notify('Proceso creado', type='positive')
@@ -1360,7 +1365,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             input_nombre.value = ''
                             input_tipo.value = ''
                             select_tipo_ej.value = None
-                            input_instrucciones.value = ''
                             
                             # Refrescar tabla de procesos
                             refrescar_procesos()
@@ -1899,7 +1903,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             
                             for paso in receta.pasos:
                                 # Determinar icono según tipo
-                                tipo_emoji = '🔧' if paso.proceso.es_manual() else '⚙️'
+                                tipo_emoji = '(Manual)' if paso.proceso.es_manual() else '(Automático)'
                                 
                                 # Mostrar nombre del paso
                                 ui.label(f"{paso.orden}. {tipo_emoji} {paso.proceso.nombre}").classes('ml-4 font-medium')
