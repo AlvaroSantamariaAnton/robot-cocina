@@ -2,27 +2,6 @@
 
 ## Bugs
 
-### Bug — Receta con un único paso manual no muestra la card de completado
-```ruby
-En una app NiceGUI que ejecuta recetas paso a paso en un RobotCocina, cada receta puede tener pasos manuales y automáticos.
-
-Bug actual:
-Si una receta tiene solo un paso manual, al confirmar ese paso:
-
-- No aparece la card de “¡Receta Completada!”
-- El sistema vuelve directamente al estado “en espera”, como si nunca hubiera terminado.
-
-En recetas con más pasos o con pasos automáticos, esto no ocurre.
-
-Objetivo:
-Corregir la lógica del robot / UI para que:
-
-- Una receta con un único paso manual se considere completada correctamente.
-- Se muestre la card de completado exactamente igual que en el resto de recetas.
-
-Analiza el flujo de estados (ESPERANDO_CONFIRMACION, avance de índice de paso, final de receta) y dame el código final completo que haya que modificar.
-```
-
 ## Features a implementar
 
 ### Feature — Notificación global cuando termina una receta (en cualquier página)
