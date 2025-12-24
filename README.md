@@ -1,140 +1,129 @@
 # EFDOO
-## Refactor
+
+## Bugs
+
+### Bug — El nombre de la receta desaparece en la card de “¡Receta Completada!” al cambiar de página
 ```ruby
-Contexto (resumen breve — lee los ficheros citados):
-- El sistema actual modela un `ProcesoCocina` que incluye *nombre, tipo, tipo_ejecución, instrucciones* **y** parámetros de ejecución (temperatura, tiempo_segundos, velocidad). Eso provoca duplicación: cambiar un parámetro obliga a crear un nuevo proceso. (Ver código actual en servicios.py y init_db.py). :contentReference[oaicite:0]{index=0} :contentReference[oaicite:1]{index=1}
-- El UI para crear procesos y recetas transmite esos parámetros como si formaran parte del proceso. En la pantalla de creación de recetas los pasos se guardan como (orden, id_proceso) sin parámetros propios. (Vistas de creación y guardado de recetas). :contentReference[oaicite:2]{index=2} :contentReference[oaicite:3]{index=3}
-- El hilo de ejecución del robot usa `proceso.tiempo_segundos` para determinar la duración de cada paso. Esto obliga a que el tiempo esté en el proceso y no en el paso. (Modelos / ejecución). :contentReference[oaicite:4]{index=4}
+Estás trabajando en una aplicación Python con NiceGUI que controla un RobotCocina.
+Existe una card de “¡Receta Completada!” que muestra el nombre de la receta recién finalizada.
 
-Objetivo (qué debe lograrse):
-- Rediseñar mínimamente el sistema para **separar la plantilla de acción (Proceso)** de la **instancia ejecutable (PasoReceta)**.
-- Los *procesos* (tanto base como usuario) deben contener únicamente: `id, nombre, tipo, tipo_ejecucion, descripcion/instrucciones` (texto descriptivo, opcional). **No deben contener** los campos `temperatura`, `tiempo_segundos` ni `velocidad`.
-- Los *pasos* (tablas pasos_receta_base y pasos_receta_usuario) deben contener los parámetros de ejecución cuando correspondan (para pasos automáticos: `tiempo_segundos`, `velocidad`, `temperatura`; para manuales: `instrucciones_texto` libre).
-- Mantener la UI visual lo más parecido posible: en el panel de control y dashboard no cambian apariencia, solo la fuente de los datos (ahora de `paso` en lugar de `proceso`).
-- Implementación por fases, no todo de golpe. Mantener compatibilidad durante la migración y proporcionar un plan de rollback.
+Bug actual:
+Al completarse una receta, si el usuario navega a otra página y luego vuelve al dashboard, la card de completado sigue apareciendo pero el nombre de la receta desaparece.
 
-Requisitos concretos (lo que espero que implementes y entregues):
-1. **Migración DB no destructiva (fase 0)**  
-   - Añadir columnas nuevas en ambas tablas `pasos_receta_base` y `pasos_receta_usuario`:
-     - `temperatura INTEGER DEFAULT NULL`
-     - `tiempo_segundos INTEGER DEFAULT NULL`
-     - `velocidad INTEGER DEFAULT NULL`
-     - `instrucciones TEXT DEFAULT NULL` (texto libre que se mostrará en pasos manuales)
-   - Backfill: para recetas de fábrica (y cualquier paso existente) copiar valores de `procesos_base`/`procesos_usuario` hacia las nuevas columnas de `pasos_*` para mantener el comportamiento actual:
-     - `UPDATE pasos_receta_base SET tiempo_segundos = (SELECT tiempo_segundos FROM procesos_base WHERE procesos_base.id = pasos_receta_base.id_proceso), ...`
-     - Para pasos manuales: copiar `instrucciones` desde `procesos_base.instrucciones` → `pasos_receta_base.instrucciones`.
-   - No borrar columnas de `procesos_*` aún (hacerlo sólo en fase de limpieza).
+El estado actual usa diccionarios como ESTADO_COMPLETADO y ESTADO_RECETA, y el dashboard se reconstruye al navegar.
 
-2. **Cambios en modelos (fase 1)**  
-   - Modificar la clase `PasoReceta` para que contenga además de `orden` y `proceso` los parámetros:
-     - `tiempo_segundos: Optional[int]`
-     - `temperatura: Optional[int]`
-     - `velocidad: Optional[int]`
-     - `instrucciones: Optional[str]`  (texto libre para pasos manuales)
-   - Mantener `ProcesoCocina` pero admitir que `proceso.temperatura/tiempo/velocidad` puedan existir por retrocompatibilidad; **la ejecución debe preferir `paso.*` si está presente**.
+Objetivo:
+Identificar la causa exacta del problema y modificar el código para que:
 
-3. **Servicios / persistencia (fase 1-2)**  
-   - Actualizar la capa `servicios.py`:
-     - `_cargar_recetas_generico` debe leer las columnas nuevas desde `pasos_*` y construir `PasoReceta(orden, proceso, tiempo_segundos=..., temperatura=..., velocidad=..., instrucciones=...)`. Actualmente lee parámetros desde `pr_user`/`pr_base`; cambia eso. (Ver cómo actualmente extrae procesos y pasos). :contentReference[oaicite:5]{index=5}
-     - `crear_receta_usuario` debe aceptar y persistir pasos enriquecidos: cada paso será algo como `(orden, id_proceso, tiempo_segundos, temperatura, velocidad, instrucciones)` en lugar de solo `(orden, id_proceso)`. Ajustar la inserción en `pasos_receta_usuario`.
-     - `crear_proceso_usuario` debe eliminar los parámetros tiempo/temp/vel del INSERT (ahora se almacenan en pasos). Cambiar la firma para no requerirlos. (Actualmente acepta esos parámetros). :contentReference[oaicite:6]{index=6}
-   - Mantener funciones legacy (sobrecargas o compatibilidad) si conviene, pero preferir la nueva API.
+- El nombre de la receta completada persista correctamente al cambiar de página.
+- No se duplique estado ni se rompa el flujo actual.
 
-4. **UI — vistas.py (fase 2)**  
-   - Página crear/editar proceso:
-     - Quitar inputs de `Temperatura`, `Tiempo`, `Velocidad` del formulario de creación de procesos (quedarán solo `nombre`, `tipo`, `tipo_ejecucion`, `instrucciones` opcional). (Ver el formulario actual). :contentReference[oaicite:7]{index=7}
-   - Página crear/editar receta:
-     - Al añadir un paso: si el `proceso.tipo_ejecucion` es **Automático**, mostrar inputs `tiempo_segundos`, `temperatura`, `velocidad` (validados como ahora). Si es **Manual**, mostrar un textarea de `instrucciones` libre (texto plano, no estructurado). Incluir esos valores al guardar la receta. (Ver cómo se construyen `pasos_temp` y el guardado actual). :contentReference[oaicite:8]{index=8}
-   - Vista de lista y detalle de procesos:
-     - Mostrar solo `nombre`, `tipo` y `tipo_ejecucion` en la tabla principal (sin columnas temp/tiempo/vel). En el detalle (dialog) puedes mostrar `instrucciones` si existen. (Actualmente se muestran parámetros; quitar eso para procesos base/usuario). :contentReference[oaicite:9]{index=9}
-   - Dashboard / ejecución:
-     - Cuando el robot muestra el paso actual o calcula tiempo estimado, usar el `paso.tiempo_segundos` (o `paso` parameters) en lugar de `proceso.tiempo_segundos`. Ajustar `calcular_tiempo_estimado` y la lógica que actualiza la barra de progreso. (Ver la función de cálculo y el hilo de ejecución en modelos). :contentReference[oaicite:10]{index=10} :contentReference[oaicite:11]{index=11}
-
-5. **Ejecución del robot (fase 2)**  
-   - Modificar `_ejecutar_receta_en_hilo` para:
-     - Determinar `duracion` como `duracion = max(1, paso.tiempo_segundos if paso.tiempo_segundos is not None else paso.proceso.tiempo_segundos)`
-     - Para pasos manuales, mostrar `paso.instrucciones` en UI. Para automáticos, aplicar `paso.velocidad` y `paso.temperatura` si están presentes.
-   - Asegurar que pausar/reanudar y progreso funcionan igual (solo se cambió la fuente de los parámetros).
-
-6. **Migración de datos y limpieza final (fase 3)**  
-   - Una vez validado todo (UI, ejecución, servicios) y tras tests, proceder a eliminar columnas `temperatura`, `tiempo_segundos`, `velocidad` de `procesos_base` y `procesos_usuario`:
-     - En SQLite lo más seguro es recrear tablas nuevas sin esas columnas y copiar los campos que queden. Proponer script SQL que recree `procesos_base_new` y copie `id,nombre,tipo,tipo_ejecucion,instrucciones` y luego rename/drop.
-   - Actualizar `init_db.py` para que en la inserción de recetas de fábrica coloque explícitamente valores en las filas de `pasos_receta_base` (ya no en `procesos_base`). (Actualmente `init_db.py` inserta procesos con parámetros). :contentReference[oaicite:12]{index=12}
-
-Entregables por fase (qué debe devolver Claude en cada fase):
-
-Fase 0 (migración no destructiva):
-- Script SQL `migrations/001_add_step_params.sql` con `ALTER TABLE` para añadir columnas a `pasos_receta_base` y `pasos_receta_usuario`.
-- Script SQL `migrations/001_backfill_from_processes.sql` que copia valores de `procesos_base/procesos_usuario` → `pasos_*`.
-- Pequeño README con instrucciones cómo ejecutar y verificar (comandos sqlite3).
-
-Commit message sugerido:
-`db: add step-level params to pasos_receta_* and backfill from procesos_*`
-
-Fase 1 (modelos + servicios, compatibilidad):
-- Cambios en `modelos.py`: nueva firma de `PasoReceta` y adaptación de RobotCocina para usar paso.* con fallback a proceso.*.
-- Cambios en `servicios.py`: `_cargar_recetas_generico`, `crear_receta_usuario`, `crear_proceso_usuario` (nuevo signature), y funciones de lectura para procesos (mantener compatibilidad).
-- Tests unitarios (pytest) básicos para `servicios._cargar_recetas_generico` que confirmen que los `PasoReceta` vienen con parámetros.
-- README de verificación: cómo ejecutar tests.
-
-Commit message sugerido:
-`modelos, servicios: move execution params from ProcesoCocina to PasoReceta (with fallback)`
-
-Fase 2 (UI):
-- Cambios en `vistas.py`: formulario de crear proceso (quitar inputs numéricos), formulario añadir paso en crear receta (mostrar inputs condicionales), envío de pasos enriquecidos a `servicios.crear_receta_usuario`.
-- Cambios menores en `vistas.py` para cálculo de tiempo estimado y mostrar instrucciones de pasos manuales en dashboard.
-- Capturas de pantalla o pasos manuales de prueba (qué clickear, qué validar).
-
-Commit message sugerido:
-`ui: allow step-level params when adding recipe steps; simplify process creation form`
-
-Fase 3 (limpieza + doc):
-- Scripts para eliminar columnas antiguas de `procesos_*` (recreate table pattern).
-- Actualizar `init_db.py` para insertar pasos con parámetros en `pasos_receta_base` (no en `procesos_base`).
-- Pruebas finales de integración: crear receta nueva (manual y automática), iniciar ejecución, pausar/reanudar, confirmar paso manual, calcular tiempo estimado.
-- Documentación de la nueva data model y cómo crear procesos/recetas.
-
-Commit message sugerido:
-`db: drop execution params from procesos_*; update init_db and docs`
-
-Criterios de aceptación (QA):
-1. Crear un proceso nuevo vía UI no requiere tiempo/temp/vel; se ve en la lista con nombre/tipo/tipo_ejecucion. (Ver tabla procesos en UI). :contentReference[oaicite:13]{index=13}
-2. Al crear una receta, al añadir un paso automático pido tiempo/temp/vel; esos valores se guardan y se usan durante la ejecución (barra de progreso y cálculo del tiempo total). (Ver lógica de guardado de recetas y cálculo actual). :contentReference[oaicite:14]{index=14} :contentReference[oaicite:15]{index=15}
-3. En recetas de fábrica existentes, el comportamiento no cambia tras la migración: el tiempo estimado y la ejecución deben permanecer iguales (porque backfill fijará los valores de los pasos). :contentReference[oaicite:16]{index=16}
-4. Robot ejecuta pasos automáticos usando **los parámetros del paso**. Si un paso no define parámetros, fallback a los del proceso (solo temporal hasta limpieza final).
-5. Paso manual muestra exactamente el texto libre que se guardó en el paso (no parsear ni intentar validar cantidades).
-
-Notas de ingeniería / consideraciones técnicas que debes seguir:
-- Mantén retrocompatibilidad por fases: no borres columnas hasta validar la fase 0–2.
-- Añade validaciones en la UI para los campos numéricos exactamente como están hoy (rango velocidad 0–10, tiempo >=1s, temp 0–120ºC).
-- Evita reordenar la base de datos sin dump/backup. Indica claramente pasos de rollback.
-- Escribe tests que cubran: persistencia (guardar/cargar receta con pasos parametrizados), ejecución (duración calculada), UI minimal smoke tests (si puedes, con una prueba de integración o instrucciones manuales detalladas).
-
-Archivos y funciones que **debes** modificar (lista explícita):
-- `data/init_db.py` — para insertar parámetros en `pasos_receta_base` en lugar de en `procesos_base` (fase 3). :contentReference[oaicite:17]{index=17}
-- `data/init_db.py` / scripts de migración — añadir scripts SQL. :contentReference[oaicite:18]{index=18}
-- `robot/modelos.py` — `PasoReceta`, `RobotCocina._ejecutar_receta_en_hilo` (usar paso.* con fallback a proceso.*). :contentReference[oaicite:19]{index=19}
-- `robot/servicios.py` — `_cargar_recetas_generico`, `crear_receta_usuario`, `crear_proceso_usuario`, funciones de lectura de procesos. :contentReference[oaicite:20]{index=20} :contentReference[oaicite:21]{index=21}
-- `robot/vistas.py` — formulario crear proceso (quitar inputs numéricos), crear receta (añadir inputs condicionales cuando se añade un paso) y cálculo de tiempo estimado en UI. :contentReference[oaicite:22]{index=22} :contentReference[oaicite:23]{index=23} :contentReference[oaicite:24]{index=24}
-
-Formato de entrega requerido por fase:
-- Patch/PR con commits pequeños y con mensajes sugeridos arriba.  
-- Para cada archivo modificado: fragmento de diff o el fichero completo (lista de cambios con líneas clave).  
-- Scripts `migrations/` con instrucciones claras para ejecutar (orden, backup, verificación).  
-- Tests unitarios/executables para validar comportamiento (pytest).  
-- README breve por fase: cómo verificar localmente.
-
-Preguntas que puedes hacerte antes de ejecutar:
-- ¿Hago primero la migración DB o el cambio de modelos? → migración DB no destructiva primero (añadir columnas + backfill) para evitar romper producción.
-- ¿Mantengo columnas antiguas hasta cuándo? → hasta que todas las pruebas de fases 1–2 pasen; entonces programar fase 3 para limpieza.
-- ¿Cómo verifico que los pasos de fábrica se han migrado correctamente? → comparar sumas de tiempos/velocidades antes y después del backfill para recetas base.
-
-=== FIN del prompt ===
-
-Trabaja por fases y entrega artefactos por fase como indiqué (scripts SQL, cambios en modelos/servicios/vistas, tests y README de verificación). Respeta la compatibilidad durante la migración y usa los fallbacks en ejecución (paso → proceso) hasta que se haya eliminado definitivamente la duplicidad de columnas.
-
+Dame el código final completo de las funciones/zonas que haya que modificar (no parches), listo para copiar y pegar, y explica brevemente por qué ahora funciona.
 ```
-## Posterior al refactor
+
+### Bug — Receta con un único paso manual no muestra la card de completado
+```ruby
+En una app NiceGUI que ejecuta recetas paso a paso en un RobotCocina, cada receta puede tener pasos manuales y automáticos.
+
+Bug actual:
+Si una receta tiene solo un paso manual, al confirmar ese paso:
+
+- No aparece la card de “¡Receta Completada!”
+- El sistema vuelve directamente al estado “en espera”, como si nunca hubiera terminado.
+
+En recetas con más pasos o con pasos automáticos, esto no ocurre.
+
+Objetivo:
+Corregir la lógica del robot / UI para que:
+
+- Una receta con un único paso manual se considere completada correctamente.
+- Se muestre la card de completado exactamente igual que en el resto de recetas.
+
+Analiza el flujo de estados (ESPERANDO_CONFIRMACION, avance de índice de paso, final de receta) y dame el código final completo que haya que modificar.
+```
+
+## Features a implementar
+
+### Feature — Notificación global cuando termina una receta (en cualquier página)
+```ruby
+Quiero añadir una notificación temporal global cuando una receta termina.
+
+Requisitos:
+
+- Debe aparecer arriba de la pantalla (tipo toast / notify).
+- Debe dispararse aunque el usuario esté en otra página distinta del dashboard.
+- Debe mostrarse una sola vez por receta completada.
+- El sistema ya usa ui.notify y callbacks de actualización del RobotCocina.
+
+Objetivo:
+Diseñar e implementar una solución limpia para:
+
+- Detectar de forma centralizada que una receta ha finalizado.
+- Lanzar la notificación independientemente de la vista actual.
+
+Dame el código completo final necesario (estado global, callback, cambios en el robot o UI) listo para copiar y pegar.
+```
+
+### Feature — Mostrar temperatura, velocidad y cuenta atrás en el paso automático
+```ruby
+En la card de paso automático (la que muestra una barra de progreso relativa al paso), quiero ampliar la información.
+
+Estado actual:
+
+- Solo se muestra el porcentaje del paso y la barra.
+
+Nuevo comportamiento deseado:
+
+- Mostrar temperatura, velocidad y tiempo restante del paso.
+- El tiempo debe verse como cuenta atrás (mm:ss).
+- La cuenta atrás debe estar sincronizada con la barra de progreso.
+- Los valores vienen de PasoReceta (temperatura, tiempo_segundos, velocidad), no del proceso.
+
+Objetivo:
+Modificar la UI y la lógica de actualización para que:
+
+- La card muestre claramente esos parámetros.
+- El tiempo restante se calcule correctamente incluso al pausar/reanudar.
+
+Dame el código completo final de la card y de la función de actualización del paso automático.
+```
+
+### Feature — Persistir los datos del formulario “Crear Receta” al cambiar de página
+```ruby
+En la vista de crear receta, el usuario introduce nombre, descripción, ingredientes y pasos.
+
+Problema actual:
+Si el usuario cambia de página (por ejemplo, vuelve al dashboard para monitorizar una cocción) y luego regresa, todos los datos escritos se pierden.
+
+Objetivo:
+Implementar persistencia temporal para que:
+
+- Los datos del formulario se mantengan aunque el usuario navegue entre páginas.
+- No se guarden todavía en base de datos (solo estado en memoria).
+- Al volver a la vista de crear receta, los campos se restauren automáticamente.
+
+Usa un enfoque coherente con NiceGUI (estado global, sesión o estructura compartida).
+
+Dame el código final completo de la solución.
+```
+
+### Feature — Hacer más grande el botón de encendido/apagado del robot
+```ruby
+En el dashboard hay un switch/botón de encendido y apagado del robot que actualmente es pequeño y poco visible.
+
+Objetivo de UI/UX:
+
+- Hacerlo significativamente más grande y claro.
+- Que visualmente comunique mejor ON / OFF (tamaño, color, icono o layout).
+- Mantener la lógica actual de encendido/apagado sin cambios funcionales.
+
+La app usa NiceGUI con clases Tailwind.
+
+Dame el código final completo del componente de encendido/apagado con el nuevo diseño aplicado.
+```
+
+## Última implementación - Modo Manual Completo
+
 ```ruby
 Objetivo general
 Implementar **modo manual real** con una card de controles (Temperatura, Tiempo, Velocidad) que permita cocinar de forma directa y segura, reutilizando los controles de inicio/pausa/cancelar existentes. El cambio debe integrarse con el RobotCocina ya refactorizado (parámetros por paso), persistir entre páginas y respetar la lógica de apagado actual.
