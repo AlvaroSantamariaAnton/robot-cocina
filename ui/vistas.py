@@ -130,6 +130,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
         'completada': False,
         'ultimo_progreso': 0.0,
         'ultimo_estado': EstadoRobot.ESPERA,
+        'ultimo_paso_index': -1,
+        'total_pasos_receta': 0,
     }
     ESTADO_COMPLETADO = {
         'mostrar': False,
@@ -203,6 +205,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
             refrescar_recetas()
             switch_encendido.value = False
             ESTADO_BARRA['completada'] = False
+            ESTADO_BARRA['ultimo_paso_index'] = -1
+            ESTADO_BARRA['total_pasos_receta'] = 0
             ESTADO_COMPLETADO['mostrar'] = False
             ESTADO_COMPLETADO['receta_nombre'] = None
             ESTADO_COMPLETADO['receta_label'] = None
@@ -561,6 +565,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ESTADO_BARRA['completada'] = False
                             ESTADO_BARRA['ultimo_progreso'] = 0.0
                             ESTADO_BARRA['ultimo_estado'] = EstadoRobot.ESPERA
+                            ESTADO_BARRA['ultimo_paso_index'] = -1
+                            ESTADO_BARRA['total_pasos_receta'] = 0 
                             
                             # Resetear estado de completado
                             ESTADO_COMPLETADO['mostrar'] = False
@@ -750,6 +756,9 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         # Resetear barra de progreso
                         ESTADO_BARRA['completada'] = False
                         ESTADO_BARRA['ultimo_progreso'] = 0.0
+                        ESTADO_BARRA['ultimo_paso_index'] = -1
+                        ESTADO_BARRA['total_pasos_receta'] = 0
+                        ESTADO_BARRA['ultimo_estado'] = EstadoRobot.ESPERA
                         barra_progreso.value = 0.0
                         progreso_label.text = "0%"
                         barra_progreso.props('color=indigo')
@@ -985,6 +994,21 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 prog_actual = float(getattr(robot, 'progreso', 0.0) or 0.0)
                 estado_anterior = ESTADO_BARRA.get('ultimo_estado')
 
+                # ✅ GUARDAR información del paso actual cuando hay una receta activa
+                if robot.receta_actual is not None and estado_actual in (
+                    EstadoRobot.COCINANDO,
+                    EstadoRobot.ESPERANDO_CONFIRMACION,
+                    EstadoRobot.PAUSADO
+                ):
+                    ESTADO_BARRA['ultimo_paso_index'] = robot.indice_paso_actual
+                    ESTADO_BARRA['total_pasos_receta'] = len(robot.receta_actual.pasos)
+
+                # ✅ Detectar si completamos el último paso
+                estaba_en_ultimo_paso = (
+                    ESTADO_BARRA.get('total_pasos_receta', 0) > 0
+                    and ESTADO_BARRA.get('ultimo_paso_index', -1) >= ESTADO_BARRA.get('total_pasos_receta', 0) - 1
+                )
+
                 receta_finalizada = (
                     estado_actual == EstadoRobot.ESPERA
                     and robot.receta_actual is not None
@@ -998,6 +1022,11 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             )
                             and prog_actual == 0.0
                             and ESTADO_BARRA.get('ultimo_progreso', 0.0) > 0.0
+                        ) or                                              # ← AGREGAR or
+                        # ✅ Condición 3 (NUEVA):                          ← AGREGAR todo esto
+                        (                                                  
+                            estado_anterior == EstadoRobot.ESPERANDO_CONFIRMACION
+                            and estaba_en_ultimo_paso
                         )
                     )
                 )
