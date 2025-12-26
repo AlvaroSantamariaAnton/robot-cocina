@@ -4,30 +4,6 @@
 
 ## Features a implementar
 
-### Feature — Mostrar temperatura, velocidad y cuenta atrás en el paso automático
-```ruby
-En la card de paso automático (la que muestra una barra de progreso relativa al paso), quiero ampliar la información.
-
-Estado actual:
-
-- Solo se muestra el porcentaje del paso y la barra.
-
-Nuevo comportamiento deseado:
-
-- Mostrar temperatura, velocidad y tiempo restante del paso.
-- El tiempo debe verse como cuenta atrás (mm:ss).
-- La cuenta atrás debe estar sincronizada con la barra de progreso.
-- Los valores vienen de PasoReceta (temperatura, tiempo_segundos, velocidad), no del proceso.
-
-Objetivo:
-Modificar la UI y la lógica de actualización para que:
-
-- La card muestre claramente esos parámetros.
-- El tiempo restante se calcule correctamente incluso al pausar/reanudar.
-
-Dame el código completo final de la card y de la función de actualización del paso automático.
-```
-
 ### Feature — Persistir los datos del formulario “Crear Receta” al cambiar de página
 ```ruby
 En la vista de crear receta, el usuario introduce nombre, descripción, ingredientes y pasos.

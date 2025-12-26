@@ -735,6 +735,35 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             'Paso 1/1: -'
                         ).classes('text-2xl font-bold text-gray-800 dark:text-white')
 
+                    # 🔹 Parámetros del paso (temperatura, velocidad, tiempo restante)
+                    with ui.row().classes('w-full justify-around items-center gap-4 bg-white dark:bg-gray-800 p-4 rounded-lg'):
+                        # Temperatura
+                        with ui.column().classes('items-center gap-1'):
+                            with ui.row().classes('items-center gap-2'):
+                                ui.icon('thermostat', size='sm').classes('text-red-500 dark:text-red-400')
+                                ui.label('Temperatura').classes('text-xs text-gray-600 dark:text-gray-400')
+                            paso_auto_temperatura = ui.label('0°C').classes(
+                                'text-lg font-bold text-gray-800 dark:text-white'
+                            )
+                        
+                        # Tiempo restante
+                        with ui.column().classes('items-center gap-1'):
+                            with ui.row().classes('items-center gap-2'):
+                                ui.icon('timer', size='sm').classes('text-orange-500 dark:text-orange-400')
+                                ui.label('Tiempo restante').classes('text-xs text-gray-600 dark:text-gray-400')
+                            paso_auto_tiempo_restante = ui.label('00:00').classes(
+                                'text-lg font-bold text-gray-800 dark:text-white'
+                            )
+
+                        # Velocidad
+                        with ui.column().classes('items-center gap-1'):
+                            with ui.row().classes('items-center gap-2'):
+                                ui.icon('speed', size='sm').classes('text-blue-500 dark:text-blue-400')
+                                ui.label('Velocidad').classes('text-xs text-gray-600 dark:text-gray-400')
+                            paso_auto_velocidad = ui.label('0').classes(
+                                'text-lg font-bold text-gray-800 dark:text-white'
+                            )
+
                     # 🔹 Zona de progreso (porcentaje + barra)
                     with ui.column().classes('w-full gap-2'):
 
@@ -856,7 +885,23 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 progreso_paso = (progreso_global - inicio_paso) / progreso_por_paso
                 progreso_paso = max(0.0, min(1.0, progreso_paso))
 
+                # Actualizar título
                 paso_auto_titulo.text = f'Paso {idx + 1}/{total_pasos}: {paso.proceso.nombre}'
+                
+                # Actualizar parámetros del paso (vienen de PasoReceta, no del Proceso)
+                temperatura = paso.temperatura if paso.temperatura is not None else 0
+                velocidad = paso.velocidad if paso.velocidad is not None else 0
+                tiempo_total_segundos = paso.tiempo_segundos if paso.tiempo_segundos is not None else 0
+                
+                paso_auto_temperatura.text = f'{temperatura}°C'
+                paso_auto_velocidad.text = f'{velocidad}'
+                
+                # Calcular tiempo restante (cuenta atrás sincronizada con la barra)
+                tiempo_transcurrido = progreso_paso * tiempo_total_segundos
+                tiempo_restante_segundos = max(0, tiempo_total_segundos - tiempo_transcurrido)
+                paso_auto_tiempo_restante.text = segundos_a_mmss(int(tiempo_restante_segundos))
+                
+                # Actualizar barra y porcentaje
                 paso_auto_barra.value = progreso_paso
                 paso_auto_progreso.text = f'{int(progreso_paso * 100)}%'
 
@@ -1194,29 +1239,35 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     if estado_actual in (EstadoRobot.COCINANDO, EstadoRobot.PAUSADO, EstadoRobot.ESPERANDO_CONFIRMACION):
                         ESTADO_RECETA['nombre'] = receta.nombre
                         
-                        # Solo actualizar paso si estamos en cocción activa
-                        pasos = receta.pasos
-                        if pasos:
-                            idx = robot.indice_paso_actual
-                            if 0 <= idx < len(pasos):
-                                paso = pasos[idx]
-                                paso_label.text = f'Paso {idx+1}/{len(pasos)}: {paso.proceso.nombre}'
+                        # Solo actualizar paso si estamos en cocción activa Y no hay receta completada
+                        if not ESTADO_COMPLETADO['mostrar']:
+                            pasos = receta.pasos
+                            if pasos:
+                                idx = robot.indice_paso_actual
+                                if 0 <= idx < len(pasos):
+                                    paso = pasos[idx]
+                                    paso_label.text = f'Paso {idx+1}/{len(pasos)}: {paso.proceso.nombre}'
 
-                                if paso.proceso.es_manual():
-                                    # Paso MANUAL
-                                    # CAMBIO: Usar paso.instrucciones con fallback a proceso.instrucciones
-                                    instrucciones_texto = paso.instrucciones or paso.proceso.instrucciones or "Sin instrucciones"
-                                    instrucciones_label.text = instrucciones_texto
-                                    paso_card.set_visibility(True)
-                                    paso_auto_card.set_visibility(False)
+                                    if paso.proceso.es_manual():
+                                        # Paso MANUAL
+                                        # CAMBIO: Usar paso.instrucciones con fallback a proceso.instrucciones
+                                        instrucciones_texto = paso.instrucciones or paso.proceso.instrucciones or "Sin instrucciones"
+                                        instrucciones_label.text = instrucciones_texto
+                                        paso_card.set_visibility(True)
+                                        paso_auto_card.set_visibility(False)
+                                    else:
+                                        # Paso AUTOMÁTICO
+                                        paso_card.set_visibility(False)
+                                        actualizar_paso_automatico()
+
+                                    if estado_actual == EstadoRobot.ESPERANDO_CONFIRMACION:
+                                        boton_confirmar.set_visibility(True)
+                                    else:
+                                        boton_confirmar.set_visibility(False)
                                 else:
-                                    # Paso AUTOMÁTICO
                                     paso_card.set_visibility(False)
-                                    actualizar_paso_automatico()
-
-                                if estado_actual == EstadoRobot.ESPERANDO_CONFIRMACION:
-                                    boton_confirmar.set_visibility(True)
-                                else:
+                                    paso_auto_card.set_visibility(False)
+                                    paso_label.text = 'Paso Actual'
                                     boton_confirmar.set_visibility(False)
                             else:
                                 paso_card.set_visibility(False)
@@ -1224,9 +1275,9 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 paso_label.text = 'Paso Actual'
                                 boton_confirmar.set_visibility(False)
                         else:
+                            # Receta completada: ocultar cards de paso
                             paso_card.set_visibility(False)
                             paso_auto_card.set_visibility(False)
-                            paso_label.text = 'Paso Actual'
                             boton_confirmar.set_visibility(False)
                     else:
                         # Si no estamos en cocción activa, resetear paso
@@ -1997,7 +2048,9 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     # PASO MANUAL: Mostrar instrucciones del PASO
                                     # Usar paso.instrucciones con fallback a proceso.instrucciones
                                     instr = paso.instrucciones or paso.proceso.instrucciones or "Sin instrucciones"
-                                    ui.label(f"📝 {instr}").classes('ml-8 text-sm text-gray-600 dark:text-gray-400 italic whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')
+                                    with ui.row().classes('items-center gap-2'):
+                                        ui.icon('edit_note', size='sm').classes('ml-8 text-indigo-600 dark:text-indigo-400')
+                                        ui.label(f"{instr}").classes('text-sm text-gray-600 dark:text-gray-400 italic whitespace-normal break-words overflow-wrap-anywhere hyphens-auto')                              
                                 else:
                                     # PASO AUTOMÁTICO: Mostrar parámetros del PASO
                                     # CAMBIO: Usar paso.temperatura, paso.tiempo_segundos, paso.velocidad
@@ -2005,8 +2058,22 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     tiempo = paso.tiempo_segundos if paso.tiempo_segundos is not None else 0
                                     vel = paso.velocidad if paso.velocidad is not None else 0
                                     
-                                    params_texto = f"🌡️ {temp}°C · ⏱️ {segundos_a_mmss(tiempo)} · ⚡ Vel {vel}"
-                                    ui.label(params_texto).classes('ml-8 text-sm text-gray-600 dark:text-gray-400')
+                                    with ui.row().classes('ml-4 items-center gap-6 px-4 py-1 rounded-lg'):
+                                        # Temperatura
+                                        with ui.row().classes('items-center gap-1'):
+                                            ui.icon('thermostat', size='sm').classes('text-red-500 dark:text-red-400')
+                                            ui.label(f'{temp}').classes('text-sm text-gray-600 dark:text-gray-400')
+                                            ui.label('°C').classes('text-sm text-gray-600 dark:text-gray-400')
+                                        
+                                        # Tiempo
+                                        with ui.row().classes('items-center gap-1'):
+                                            ui.icon('timer', size='sm').classes('text-orange-500 dark:text-orange-400')
+                                            ui.label(segundos_a_mmss(tiempo)).classes('text-sm text-gray-600 dark:text-gray-400')
+                                        
+                                        # Velocidad
+                                        with ui.row().classes('items-center gap-1'):
+                                            ui.icon('speed', size='sm').classes('text-blue-500 dark:text-blue-400')
+                                            ui.label(f'{vel}').classes('text-sm text-gray-600 dark:text-gray-400')
 
                         # ========== BOTONES ==========
                         with ui.row().classes('w-full justify-between mt-6'):
