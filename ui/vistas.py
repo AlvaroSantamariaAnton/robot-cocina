@@ -139,6 +139,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
         'receta_label': None
     }
 
+    NOTIFICACIONES_MOSTRADAS = set()  # IDs de recetas ya notificadas
+
     def construir_etiquetas_recetas() -> List[str]:
         RECETAS_DISPONIBLES.clear()
         etiquetas: List[str] = []
@@ -190,6 +192,49 @@ def registrar_vistas(robot: RobotCocina) -> None:
         )
 
         return f"Tiempo estimado: {tiempo_str}{nota_manual}"
+    
+    # NUEVO: Función de monitoreo mejorada
+    def monitor_global_recetas():
+        """
+        Monitorea el robot y dispara notificaciones cuando detecta una receta completada.
+        
+        Lógica: Una receta está completada si:
+        1. El robot está en ESPERA (no cocinando)
+        2. Hay una receta actual cargada
+        3. El progreso es 0% o cercano a 100%
+        4. La receta NO ha sido notificada todavía
+        """
+        estado_actual = robot.estado
+        receta_actual = robot.receta_actual
+        
+        # Solo notificar si hay una receta y el robot está en espera
+        if estado_actual != EstadoRobot.ESPERA or receta_actual is None:
+            return
+        
+        # Obtener progreso
+        prog_actual = float(getattr(robot, 'progreso', 0.0) or 0.0)
+        
+        # Detectar receta completada: progreso en 0 o cercano a 100
+        # (el robot resetea a 0 después de completar)
+        receta_completada = (prog_actual >= 99.0) or (prog_actual == 0.0 and ESTADO_BARRA.get('ultimo_progreso', 0.0) > 50.0)
+        
+        if not receta_completada:
+            return
+        
+        # Verificar si ya fue notificada
+        receta_id = receta_actual.id
+        if receta_id in NOTIFICACIONES_MOSTRADAS:
+            return
+        
+        # ¡Notificar!
+        NOTIFICACIONES_MOSTRADAS.add(receta_id)
+        ui.notify(
+            f'¡Receta "{receta_actual.nombre}" completada!',
+            type='positive',
+            position='top',
+            timeout=5000,
+            close_button=False
+        )
 
     # ==================================================================================
     # PANEL PRINCIPAL - DASHBOARD
@@ -211,6 +256,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
             ESTADO_COMPLETADO['receta_nombre'] = None
             ESTADO_COMPLETADO['receta_label'] = None
             ESTADO_RECETA['nombre'] = "(ninguna)"
+            NOTIFICACIONES_MOSTRADAS.clear()
             pasos_expansion.set_visibility(False)
             ingredientes_expansion.set_visibility(False)
             pasos_expansion.set_visibility(False)
@@ -336,6 +382,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 ESTADO_COMPLETADO['receta_nombre'] = None
                                 ESTADO_COMPLETADO['receta_label'] = None
                                 completado_card.set_visibility(False)
+
+                                NOTIFICACIONES_MOSTRADAS.clear()
 
                                 # Limpiar selección de receta al apagar
                                 select_receta.value = None
@@ -738,6 +786,9 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ESTADO_COMPLETADO['mostrar'] = False
                         ESTADO_COMPLETADO['receta_nombre'] = None
                         ESTADO_COMPLETADO['receta_label'] = None
+
+                        NOTIFICACIONES_MOSTRADAS.clear()
+                        ESTADO_BARRA['ultimo_progreso'] = 0.0
                         
                         # Ocultar card
                         completado_card.set_visibility(False)
@@ -1190,6 +1241,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     boton_confirmar.set_visibility(False)
 
             ui.timer(interval=0.5, callback=refrescar_ui)
+            ui.timer(interval=0.5, callback=monitor_global_recetas)
             refrescar_recetas()
 
     # ==================================================================================
@@ -1511,6 +1563,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     boton_expandir_usuario.set_visibility(False)
 
             refrescar_procesos()
+            ui.timer(interval=0.5, callback=monitor_global_recetas)
 
     # ==================================================================================
     # PÁGINA RECETAS
@@ -2055,3 +2108,4 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 ui.badge(f'{len(rec.pasos)} pasos', color='indigo')
 
             refrescar_recetas()
+            ui.timer(interval=0.5, callback=monitor_global_recetas)

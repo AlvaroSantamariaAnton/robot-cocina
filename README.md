@@ -4,26 +4,6 @@
 
 ## Features a implementar
 
-### Feature — Notificación global cuando termina una receta (en cualquier página)
-```ruby
-Quiero añadir una notificación temporal global cuando una receta termina.
-
-Requisitos:
-
-- Debe aparecer arriba de la pantalla (tipo toast / notify).
-- Debe dispararse aunque el usuario esté en otra página distinta del dashboard.
-- Debe mostrarse una sola vez por receta completada.
-- El sistema ya usa ui.notify y callbacks de actualización del RobotCocina.
-
-Objetivo:
-Diseñar e implementar una solución limpia para:
-
-- Detectar de forma centralizada que una receta ha finalizado.
-- Lanzar la notificación independientemente de la vista actual.
-
-Dame el código completo final necesario (estado global, callback, cambios en el robot o UI) listo para copiar y pegar.
-```
-
 ### Feature — Mostrar temperatura, velocidad y cuenta atrás en el paso automático
 ```ruby
 En la card de paso automático (la que muestra una barra de progreso relativa al paso), quiero ampliar la información.
