@@ -2013,7 +2013,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         if 0 <= idx < len(pasos_temp):
                             pasos_temp.pop(idx)
                             # Reajustar el orden de los pasos restantes
-                            pasos_temp[:] = [(i+1, p) for i, (_, p) in enumerate(pasos_temp)]
+                            for i, paso_dict in enumerate(pasos_temp):
+                                paso_dict['orden'] = i + 1
                             actualizar_tabla_pasos()
                             ui.notify('Paso eliminado', type='info')
                             guardar_pasos_ls()
