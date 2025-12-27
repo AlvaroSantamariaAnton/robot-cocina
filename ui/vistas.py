@@ -354,8 +354,12 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                         def cambiar_encendido(e):
                             if e.value:
-                                robot.encender()
-                                icon_power.classes(remove='text-red-600')
+                                try:
+                                    robot.encender()
+                                except Exception as ex:
+                                    ui.notify(f'Error al encender: {ex}', type='negative')
+                                    e.value = False  # Revertir switch
+                                    return                                icon_power.classes(remove='text-red-600')
                                 icon_power.classes(add='text-green-600')
                                 ESTADO_BARRA['completada'] = False
                                 banner_apagado.set_visibility(False)
@@ -370,8 +374,12 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     robot.detener_coccion()
 
                                 # Ahora sí: apagar de verdad
-                                robot.apagar()
-
+                                try:
+                                    robot.apagar()
+                                except Exception as ex:
+                                    ui.notify(f'Error al apagar: {ex}', type='negative')
+                                    e.value = True  # Revertir switch
+                                    return
                                 icon_power.classes(remove='text-green-600')
                                 icon_power.classes(add='text-red-600')
 
@@ -555,8 +563,12 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 try:
                                     robot.iniciar_coccion()
                                     ui.notify('Reanudando...', type='positive')
+                                except RobotApagadoError:
+                                    ui.notify('Error: El robot debe estar encendido', type='negative')
+                                except RecetaNoSeleccionadaError:
+                                    ui.notify('Error: No hay receta seleccionada', type='warning')
                                 except Exception as ex:
-                                    ui.notify(f'Error: {ex}', type='negative')
+                                    ui.notify(f'Error inesperado: {ex}', type='negative')
                                 return
 
                             if robot.estado == EstadoRobot.COCINANDO:
@@ -577,8 +589,12 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 robot.seleccionar_receta(receta)
                                 robot.iniciar_coccion()
                                 ui.notify(f'Iniciando: {receta.nombre}', type='positive')
+                            except RobotApagadoError:
+                                ui.notify('El robot debe estar encendido para cocinar', type='negative')
+                            except RecetaNoSeleccionadaError:
+                                ui.notify('Error al seleccionar la receta', type='warning')
                             except Exception as ex:
-                                ui.notify(f'{ex}', type='negative')
+                                ui.notify(f'Error inesperado: {ex}', type='negative')
 
                         def pausar_coccion():
                             if robot.estado != EstadoRobot.COCINANDO:
