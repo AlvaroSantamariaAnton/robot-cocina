@@ -409,7 +409,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             switch_encendido = ui.switch(
                                 value=(robot.estado != EstadoRobot.APAGADO),
                                 on_change=cambiar_encendido
-                            ).props('color=green').tooltip('O = Apagado · I = Encendido')
+                            ).props('color=green').tooltip('O = Apagado · I = Encendido').classes('scale-125')
                             ui.label('I').classes('text-xs text-gray-600 dark:text-gray-400 select-none')
 
                 # Card Progreso
@@ -736,7 +736,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ).classes('text-2xl font-bold text-gray-800 dark:text-white')
 
                     # 🔹 Parámetros del paso (temperatura, velocidad, tiempo restante)
-                    with ui.row().classes('w-full justify-around items-center gap-4 bg-white dark:bg-gray-800 p-4 rounded-lg'):
+                    with ui.row().classes('w-full justify-around items-center gap-4 !bg-white dark:!bg-gray-700 p-4 rounded-lg'):
                         # Temperatura
                         with ui.column().classes('items-center gap-1'):
                             with ui.row().classes('items-center gap-2'):
@@ -1059,14 +1059,21 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 # Paso manual: mostrar instrucciones
                                 instr = paso.instrucciones or paso.proceso.instrucciones or ""
                                 if instr:
-                                    html_pasos += f'<div class="text-sm text-gray-600 dark:text-gray-400 italic mt-1">📝 {instr}</div>'
+                                    # Usar SVG inline en lugar de material-icons para evitar problemas de re-renderizado
+                                    icon_svg = '<svg class="inline-block text-purple-500 dark:text-purple-400" style="width: 1.125rem; height: 1.125rem; vertical-align: middle;" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>'
+                                    html_pasos += f'<div class="text-sm text-gray-600 dark:text-gray-400 italic mt-1">{icon_svg} {instr}</div>'
                             else:
                                 # Paso automático: mostrar parámetros del PASO
                                 temp = paso.temperatura if paso.temperatura is not None else 0
                                 tiempo = paso.tiempo_segundos if paso.tiempo_segundos is not None else 0
                                 vel = paso.velocidad if paso.velocidad is not None else 0
                                 
-                                params = f"🌡️ {temp}°C · ⏱️ {segundos_a_mmss(tiempo)} · ⚡ Vel {vel}"
+                                # Usar SVG inline para los iconos
+                                icon_temp = '<svg class="inline-block text-red-500 dark:text-red-400" style="width: 1.125rem; height: 1.125rem; vertical-align: middle;" fill="currentColor" viewBox="0 0 24 24"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-4-8c0-.55.45-1 1-1s1 .45 1 1h-1v1h1v2h-1v1h1v2h-2V5z"/></svg>'
+                                icon_timer = '<svg class="inline-block text-orange-500 dark:text-orange-400" style="width: 1.125rem; height: 1.125rem; vertical-align: middle;" fill="currentColor" viewBox="0 0 24 24"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>'
+                                icon_speed = '<svg class="inline-block text-blue-500 dark:text-blue-400" style="width: 1.125rem; height: 1.125rem; vertical-align: middle;" fill="currentColor" viewBox="0 0 24 24"><path d="M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6.85l1.85-1.23A10 10 0 0 0 3.35 19a2 2 0 0 0 1.72 1h13.85a2 2 0 0 0 1.74-1 10 10 0 0 0-.27-10.44z"/><path d="M10.59 15.41a2 2 0 0 0 2.83 0l5.66-8.49-8.49 5.66a2 2 0 0 0 0 2.83z"/></svg>'
+                                
+                                params = f'{icon_temp} {temp}°C · {icon_timer} {segundos_a_mmss(tiempo)} · {icon_speed} Vel {vel}'
                                 html_pasos += f'<div class="text-sm text-gray-600 dark:text-gray-400 mt-1">{params}</div>'
                             
                             html_pasos += f'</div>'
@@ -1471,7 +1478,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         """Crea un nuevo proceso SIN parámetros de ejecución."""
                         # Validaciones
                         nombre = (input_nombre.value or '').strip()
-                        tipo = (input_tipo.value or '').strip() or "generico"
+                        tipo = (input_tipo.value or '').strip() or "Genérico"
                         tipo_ej = select_tipo_ej.value
                         
                         if not nombre:
@@ -1658,7 +1665,55 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ui.label('Crear Nueva Receta').classes('text-2xl font-bold')
 
                     input_nombre_receta = ui.input('Nombre de la receta').props('outlined dense').classes('w-full')
+                    
                     input_desc_receta = ui.textarea('Descripción').props('outlined').classes('w-full')
+                    
+                    # ========== FUNCIONES DE PERSISTENCIA ==========
+                    def guardar_nombre_desc():
+                        """Guarda nombre y descripción en localStorage."""
+                        import json
+                        nombre_val = input_nombre_receta.value or ''
+                        desc_val = input_desc_receta.value or ''
+                        ui.run_javascript(f"localStorage.setItem('receta_nombre', {json.dumps(nombre_val)})")
+                        ui.run_javascript(f"localStorage.setItem('receta_descripcion', {json.dumps(desc_val)})")
+                    
+                    # Guardar cada vez que cambian los valores
+                    input_nombre_receta.on_value_change(lambda: guardar_nombre_desc())
+                    input_desc_receta.on_value_change(lambda: guardar_nombre_desc())
+                    
+                    # Timer adicional para guardar periódicamente (por si acaso)
+                    ui.timer(1.0, lambda: guardar_nombre_desc())
+
+                    
+                    # ========== FUNCIONES DE PERSISTENCIA ==========
+                    def guardar_ingredientes_ls():
+                        """Guarda ingredientes en localStorage."""
+                        import json
+                        ui.run_javascript(f"localStorage.setItem('receta_ingredientes', {repr(json.dumps(ingredientes_temp))})")  
+                    
+                    def guardar_pasos_ls():
+                        """Guarda pasos en localStorage."""
+                        import json
+                        pasos_serializable = [{
+                            'orden': p['orden'],
+                            'proceso_id': p['proceso'].id,
+                            'proceso_nombre': p['proceso'].nombre,
+                            'proceso_origen': getattr(p['proceso'], 'origen', 'usuario'),
+                            'temp': p['temp'],
+                            'tiempo': p['tiempo'],
+                            'vel': p['vel'],
+                            'instr': p['instr']
+                        } for p in pasos_temp]
+                        ui.run_javascript(f"localStorage.setItem('receta_pasos', {repr(json.dumps(pasos_serializable))})")  
+                    
+                    def limpiar_estado_formulario():
+                        """Limpia el estado guardado del formulario."""
+                        ui.run_javascript('''
+                            localStorage.removeItem('receta_nombre');
+                            localStorage.removeItem('receta_descripcion');
+                            localStorage.removeItem('receta_ingredientes');
+                            localStorage.removeItem('receta_pasos');
+                        ''')
 
                     with ui.row().classes('items-center justify-between'):
                         ui.icon('shopping_cart', size='md').classes('text-blue-500 dark:text-blue-400')
@@ -1701,6 +1756,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ingredientes_temp.pop(idx)
                             actualizar_tabla_ings()
                             ui.notify('Ingrediente eliminado', type='info')
+                            guardar_ingredientes_ls()
 
                     tabla_ings.add_slot('body-cell-acciones', r'''
                         <q-td :props="props">
@@ -1711,6 +1767,90 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         </q-td>
                     ''')
                     tabla_ings.on('eliminar', lambda e: eliminar_ing(e.args))
+
+                    # ========== CARGAR DATOS GUARDADOS ==========
+                    def cargar_estado_inicial():
+                        """Carga nombre, descripción, ingredientes y pasos desde localStorage."""
+                        ui.run_javascript(f'''
+                            const nombre = localStorage.getItem('receta_nombre');
+                            if (nombre) {{
+                                try {{
+                                    emitEvent('cargar_nombre', JSON.parse(nombre));
+                                }} catch(e) {{
+                                    console.error('Error cargando nombre:', e);
+                                }}
+                            }}
+                            const desc = localStorage.getItem('receta_descripcion');
+                            if (desc) {{
+                                try {{
+                                    emitEvent('cargar_descripcion', JSON.parse(desc));
+                                }} catch(e) {{
+                                    console.error('Error cargando descripción:', e);
+                                }}
+                            }}
+                            const ings = localStorage.getItem('receta_ingredientes');
+                            if (ings) {{
+                                try {{
+                                    emitEvent('cargar_ingredientes', JSON.parse(ings));
+                                }} catch(e) {{
+                                    console.error('Error cargando ingredientes:', e);
+                                }}
+                            }}
+                            const pasos = localStorage.getItem('receta_pasos');
+                            if (pasos) {{
+                                try {{
+                                    emitEvent('cargar_pasos', JSON.parse(pasos));
+                                }} catch(e) {{
+                                    console.error('Error cargando pasos:', e);
+                                }}
+                            }}
+                        ''')
+                    
+                    def on_cargar_nombre(e):
+                        if e.args:
+                            input_nombre_receta.value = e.args
+                    
+                    def on_cargar_descripcion(e):
+                        if e.args:
+                            input_desc_receta.value = e.args
+                    
+                    def on_cargar_ingredientes(e):
+                        if e.args:
+                            ingredientes_temp.clear()
+                            ingredientes_temp.extend(e.args)
+                            actualizar_tabla_ings()
+                    
+                    def on_cargar_pasos(e):
+                        """Carga pasos guardados desde localStorage."""
+                        if e.args:
+                            pasos_temp.clear()
+                            for paso_data in e.args:
+                                # Buscar el proceso por ID
+                                proceso = None
+                                proceso_id = paso_data.get('proceso_id')
+                                
+                                # Buscar en procesos_map
+                                for label, proc in procesos_map.items():
+                                    if proc.id == proceso_id:
+                                        proceso = proc
+                                        break
+                                
+                                if proceso:
+                                    pasos_temp.append({
+                                        'orden': paso_data['orden'],
+                                        'proceso': proceso,
+                                        'temp': paso_data.get('temp'),
+                                        'tiempo': paso_data.get('tiempo'),
+                                        'vel': paso_data.get('vel'),
+                                        'instr': paso_data.get('instr')
+                                    })
+                            actualizar_tabla_pasos()
+                    
+                    ui.on('cargar_nombre', on_cargar_nombre)
+                    ui.on('cargar_descripcion', on_cargar_descripcion)
+                    ui.on('cargar_ingredientes', on_cargar_ingredientes)
+                    ui.on('cargar_pasos', on_cargar_pasos)
+                    ui.timer(0.5, lambda: cargar_estado_inicial(), once=True)
 
                     def anadir_ing():
                         if not ing_nombre.value:
@@ -1728,6 +1868,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ing_cant.value = None
                         ing_unidad.value = ''
                         ing_nota.value = ''
+                        guardar_ingredientes_ls()
 
                     with ui.row().classes('items-center justify-between'):
                         ui.icon('list', size='md').classes('text-blue-600 dark:text-blue-400')
@@ -1779,10 +1920,9 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     
                                     with ui.row().classes('w-full gap-2 items-end'):
                                         params_state['temp'] = ui.number(
-                                            'Temperatura (°C)',
+                                            'Temperatura (0-120°C)',
                                             min=0,
                                             max=120,
-                                            value=0
                                         ).props('outlined dense').classes('flex-1')
                                         
                                         params_state['tiempo'] = ui.input(
@@ -1791,10 +1931,9 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                         ).props('outlined dense mask="##:##"').classes('flex-1')
                                         
                                         params_state['vel'] = ui.number(
-                                            'Velocidad',
+                                            'Velocidad (0-10)',
                                             min=0,
                                             max=10,
-                                            value=0
                                         ).props('outlined dense').classes('flex-1')
                                     
                                     # Resetear instrucciones
@@ -1805,14 +1944,39 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                     tabla_pasos = ui.table(
                         columns=[
-                            {'name': 'ord', 'label': '#', 'field': 'ord'},
-                            {'name': 'nom', 'label': 'Proceso', 'field': 'nom'},
-                            {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo'},
-                            {'name': 'params', 'label': 'Parámetros', 'field': 'params'},  # NUEVO
+                            {'name': 'ord', 'label': '#', 'field': 'ord','align': 'left'},
+                            {'name': 'nom', 'label': 'Proceso', 'field': 'nom','align': 'left'},
+                            {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo','align': 'left'},
+                            {'name': 'params', 'label': 'Parámetros', 'field': 'params', 'align': 'right'},  # ← CAMBIADO
                             {'name': 'acciones', 'label': 'Acciones', 'field': 'acciones'},
                         ],
                         rows=[]
                     ).props('flat dense').classes('w-full')
+
+                    # Slot con alineación a la derecha
+                    tabla_pasos.add_slot('body-cell-params', r'''
+                        <q-td :props="props" class="text-right">
+                            <div v-if="props.row.params_raw.instr" class="flex items-center gap-2 justify-end">
+                                <q-icon name="edit_note" size="xs" class="text-indigo-500 dark:text-indigo-400" />
+                                <span class="text-sm text-gray-600 dark:text-gray-400">{{ props.row.params_raw.instr.substring(0, 30) }}...</span>
+                            </div>
+                            <div v-else-if="props.row.params_raw.tiempo" class="flex items-center gap-4 justify-end">
+                                <div class="flex items-center gap-1">
+                                    <q-icon name="thermostat" size="xs" class="text-red-500 dark:text-red-400" />
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">{{ props.row.params_raw.temp }}°C</span>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <q-icon name="timer" size="xs" class="text-orange-500 dark:text-orange-400" />
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">{{ props.row.params_raw.tiempo }}</span>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <q-icon name="speed" size="xs" class="text-blue-500 dark:text-blue-400" />
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">{{ props.row.params_raw.vel }}</span>
+                                </div>
+                            </div>
+                            <span v-else class="text-sm text-gray-600 dark:text-gray-400">-</span>
+                        </q-td>
+                    ''')
 
                     def actualizar_tabla_pasos():
                         """Muestra los pasos con sus parámetros."""
@@ -1823,15 +1987,18 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 'ord': paso_dict['orden'],
                                 'nom': paso_dict['proceso'].nombre,
                                 'tipo': 'Manual' if paso_dict['proceso'].es_manual() else 'Automático',
-                                'params': (
-                                    f"📝 {paso_dict['instr'][:30]}..." if paso_dict['instr']
-                                    else f"🌡️{paso_dict['temp']}° ⏱️{segundos_a_mmss(paso_dict['tiempo'])} ⚡{paso_dict['vel']}"
-                                    if paso_dict['tiempo'] else '-'
-                                ),
+                                'params': '-',  # Placeholder
+                                'params_raw': {
+                                    'instr': paso_dict['instr'] if paso_dict['instr'] else '',
+                                    'temp': paso_dict['temp'],
+                                    'tiempo': segundos_a_mmss(paso_dict['tiempo']) if paso_dict['tiempo'] else None,
+                                    'vel': paso_dict['vel']
+                                },
                                 'idx': idx
                             }
                             for idx, paso_dict in enumerate(pasos_temp)
                         ]
+                        
                         tabla_pasos.update()
 
                     def eliminar_paso(idx):
@@ -1841,6 +2008,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             pasos_temp[:] = [(i+1, p) for i, (_, p) in enumerate(pasos_temp)]
                             actualizar_tabla_pasos()
                             ui.notify('Paso eliminado', type='info')
+                            guardar_pasos_ls()
 
                     tabla_pasos.add_slot('body-cell-acciones', r'''
                         <q-td :props="props">
@@ -1917,6 +2085,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 return
                         
                         actualizar_tabla_pasos()
+                        guardar_pasos_ls()
                         
                         # Limpiar inputs
                         select_proc.value = None
@@ -1965,8 +2134,20 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             tabla_ings.update()
                             tabla_pasos.update()
                             refrescar_recetas()
+                            limpiar_estado_formulario()
                         except Exception as ex:
                             ui.notify(f'Error al guardar: {ex}', type='negative')
+
+                    ui.button('LIMPIAR FORMULARIO', on_click=lambda: [
+                        setattr(input_nombre_receta, 'value', ''),
+                        setattr(input_desc_receta, 'value', ''),
+                        ingredientes_temp.clear(),
+                        pasos_temp.clear(),
+                        actualizar_tabla_ings(),
+                        actualizar_tabla_pasos(),
+                        limpiar_estado_formulario(),
+                        ui.notify('Formulario limpiado', type='info')
+                    ]).props('outline color=orange icon=clear_all').classes('w-full')
 
                     ui.button('GUARDAR RECETA', on_click=crear_receta).props(
                         'unelevated color=blue size=lg icon=save'

@@ -4,40 +4,6 @@
 
 ## Features a implementar
 
-### Feature — Persistir los datos del formulario “Crear Receta” al cambiar de página
-```ruby
-En la vista de crear receta, el usuario introduce nombre, descripción, ingredientes y pasos.
-
-Problema actual:
-Si el usuario cambia de página (por ejemplo, vuelve al dashboard para monitorizar una cocción) y luego regresa, todos los datos escritos se pierden.
-
-Objetivo:
-Implementar persistencia temporal para que:
-
-- Los datos del formulario se mantengan aunque el usuario navegue entre páginas.
-- No se guarden todavía en base de datos (solo estado en memoria).
-- Al volver a la vista de crear receta, los campos se restauren automáticamente.
-
-Usa un enfoque coherente con NiceGUI (estado global, sesión o estructura compartida).
-
-Dame el código final completo de la solución.
-```
-
-### Feature — Hacer más grande el botón de encendido/apagado del robot
-```ruby
-En el dashboard hay un switch/botón de encendido y apagado del robot que actualmente es pequeño y poco visible.
-
-Objetivo de UI/UX:
-
-- Hacerlo significativamente más grande y claro.
-- Que visualmente comunique mejor ON / OFF (tamaño, color, icono o layout).
-- Mantener la lógica actual de encendido/apagado sin cambios funcionales.
-
-La app usa NiceGUI con clases Tailwind.
-
-Dame el código final completo del componente de encendido/apagado con el nuevo diseño aplicado.
-```
-
 ## Última implementación - Modo Manual Completo
 
 ```ruby
