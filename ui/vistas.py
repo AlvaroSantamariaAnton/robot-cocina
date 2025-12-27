@@ -686,9 +686,80 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
             with pasos_expansion:
                 with ui.column().classes('gap-2'):
-                    pasos_lista = ui.html('<div></div>', sanitize=False).classes('text-gray-700 dark:text-gray-300')
+                    pasos_contenedor = ui.column().classes('space-y-3')
 
             pasos_expansion.set_visibility(False)
+
+            def renderizar_pasos_receta(receta):
+                """Renderiza los pasos manteniendo el diseño original."""
+                # Limpiar contenido anterior
+                pasos_contenedor.clear()
+                
+                if not receta or not getattr(receta, 'pasos', None):
+                    pasos_expansion.set_visibility(False)
+                    return
+                
+                from utils.utils_tiempo import segundos_a_mmss
+                
+                with pasos_contenedor:
+                    for paso in receta.pasos:
+                        # Contenedor del paso con borde izquierdo
+                        with ui.column().classes('border-l-4 border-indigo-500 pl-4 py-2 gap-1'):
+                            # Línea 1: "Paso X:" + Badge
+                            with ui.row().classes('items-center gap-2'):
+                                ui.label(f'Paso {paso.orden}:').classes(
+                                    'font-bold text-indigo-600 dark:text-indigo-400'
+                                )
+                                if paso.proceso.es_manual():
+                                    ui.badge('Manual').props('color=purple')
+                                else:
+                                    ui.badge('Automático').props('color=green')
+                            
+                            # Línea 2: Nombre del proceso
+                            ui.label(paso.proceso.nombre).classes('font-medium')
+                            
+                            # Línea 3: Parámetros/Instrucciones
+                            if paso.proceso.es_manual():
+                                # Paso manual: icono + instrucciones en línea
+                                instr = paso.instrucciones or paso.proceso.instrucciones or ""
+                                if instr:
+                                    with ui.row().classes('items-center gap-1'):
+                                        ui.icon('edit_note').classes(
+                                            'text-purple-500 dark:text-purple-400'
+                                        ).style('font-size: 1.125rem')
+                                        ui.label(instr).classes(
+                                            'text-sm text-gray-600 dark:text-gray-400 italic'
+                                        )
+                            else:
+                                # Paso automático: iconos + parámetros en línea horizontal
+                                temp = paso.temperatura if paso.temperatura is not None else 0
+                                tiempo = paso.tiempo_segundos if paso.tiempo_segundos is not None else 0
+                                vel = paso.velocidad if paso.velocidad is not None else 0
+                                
+                                with ui.row().classes('items-center gap-2 text-sm text-gray-600 dark:text-gray-400'):
+                                    # Temperatura
+                                    ui.icon('thermostat').classes(
+                                        'text-red-500 dark:text-red-400'
+                                    ).style('font-size: 1.125rem')
+                                    ui.label(f'{temp}°C')
+                                    
+                                    ui.label('·')
+                                    
+                                    # Tiempo
+                                    ui.icon('timer').classes(
+                                        'text-orange-500 dark:text-orange-400'
+                                    ).style('font-size: 1.125rem')
+                                    ui.label(segundos_a_mmss(tiempo))
+                                    
+                                    ui.label('·')
+                                    
+                                    # Velocidad
+                                    ui.icon('speed').classes(
+                                        'text-blue-500 dark:text-blue-400'
+                                    ).style('font-size: 1.125rem')
+                                    ui.label(f'{vel}')
+                
+                pasos_expansion.set_visibility(True)
 
             # ============ FILA 4: PASO ACTUAL ============
             paso_card = ui.card().classes(
@@ -973,24 +1044,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     else:
                         ingredientes_expansion.set_visibility(False)
                     
-                    # Mostrar pasos de la receta (NUEVO)
-                    if getattr(receta_mostrada, 'pasos', None):
-                        html_pasos = '<div class="space-y-3">'
-                        for paso in receta_mostrada.pasos:
-                            tipo_badge = '<span class="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 px-2 py-1 rounded text-xs font-semibold">Manual</span>' if paso.proceso.es_manual() else '<span class="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded text-xs font-semibold">Automático</span>'
-                            html_pasos += f'<div class="border-l-4 border-indigo-500 pl-4 py-2">'
-                            html_pasos += f'<div class="flex items-center gap-2 mb-1">'
-                            html_pasos += f'<span class="font-bold text-indigo-600 dark:text-indigo-400">Paso {paso.orden}:</span> {tipo_badge}'
-                            html_pasos += f'</div>'
-                            html_pasos += f'<div class="font-medium">{paso.proceso.nombre}</div>'
-                            if paso.proceso.es_manual() and hasattr(paso.proceso, 'instrucciones'):
-                                html_pasos += f'<div class="text-sm text-gray-600 dark:text-gray-400 italic mt-1">{paso.proceso.instrucciones}</div>'
-                            html_pasos += f'</div>'
-                        html_pasos += '</div>'
-                        pasos_lista.set_content(html_pasos)
-                        pasos_expansion.set_visibility(True)
-                    else:
-                        pasos_expansion.set_visibility(False)
+                    # Mostrar pasos de la receta
+                    renderizar_pasos_receta(receta_mostrada)
                 else:
                     ESTADO_RECETA['nombre'] = "(ninguna)"  # ← CAMBIAR de receta_label.text
                     ingredientes_expansion.set_visibility(False)
@@ -1034,54 +1089,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ingredientes_expansion.set_visibility(False)
                     
                     # ========== MOSTRAR PASOS CON PARÁMETROS DEL PASO ==========
-                    # CAMBIO: Mostrar parámetros desde paso.*, no proceso.*
-                    if getattr(receta, 'pasos', None):
-                        from utils.utils_tiempo import segundos_a_mmss
-                        
-                        html_pasos = '<div class="space-y-3">'
-                        for paso in receta.pasos:
-                            tipo_badge = (
-                                '<span class="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 '
-                                'px-2 py-1 rounded text-xs font-semibold">Manual</span>' 
-                                if paso.proceso.es_manual() 
-                                else '<span class="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 '
-                                'px-2 py-1 rounded text-xs font-semibold">Automático</span>'
-                            )
-                            
-                            html_pasos += f'<div class="border-l-4 border-indigo-500 pl-4 py-2">'
-                            html_pasos += f'<div class="flex items-center gap-2 mb-1">'
-                            html_pasos += f'<span class="font-bold text-indigo-600 dark:text-indigo-400">Paso {paso.orden}:</span> {tipo_badge}'
-                            html_pasos += f'</div>'
-                            html_pasos += f'<div class="font-medium">{paso.proceso.nombre}</div>'
-                            
-                            # CAMBIO: Mostrar parámetros del PASO
-                            if paso.proceso.es_manual():
-                                # Paso manual: mostrar instrucciones
-                                instr = paso.instrucciones or paso.proceso.instrucciones or ""
-                                if instr:
-                                    # Usar SVG inline en lugar de material-icons para evitar problemas de re-renderizado
-                                    icon_svg = '<svg class="inline-block text-purple-500 dark:text-purple-400" style="width: 1.125rem; height: 1.125rem; vertical-align: middle;" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>'
-                                    html_pasos += f'<div class="text-sm text-gray-600 dark:text-gray-400 italic mt-1">{icon_svg} {instr}</div>'
-                            else:
-                                # Paso automático: mostrar parámetros del PASO
-                                temp = paso.temperatura if paso.temperatura is not None else 0
-                                tiempo = paso.tiempo_segundos if paso.tiempo_segundos is not None else 0
-                                vel = paso.velocidad if paso.velocidad is not None else 0
-                                
-                                # Usar SVG inline para los iconos
-                                icon_temp = '<svg class="inline-block text-red-500 dark:text-red-400" style="width: 1.125rem; height: 1.125rem; vertical-align: middle;" fill="currentColor" viewBox="0 0 24 24"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-4-8c0-.55.45-1 1-1s1 .45 1 1h-1v1h1v2h-1v1h1v2h-2V5z"/></svg>'
-                                icon_timer = '<svg class="inline-block text-orange-500 dark:text-orange-400" style="width: 1.125rem; height: 1.125rem; vertical-align: middle;" fill="currentColor" viewBox="0 0 24 24"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>'
-                                icon_speed = '<svg class="inline-block text-blue-500 dark:text-blue-400" style="width: 1.125rem; height: 1.125rem; vertical-align: middle;" fill="currentColor" viewBox="0 0 24 24"><path d="M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6.85l1.85-1.23A10 10 0 0 0 3.35 19a2 2 0 0 0 1.72 1h13.85a2 2 0 0 0 1.74-1 10 10 0 0 0-.27-10.44z"/><path d="M10.59 15.41a2 2 0 0 0 2.83 0l5.66-8.49-8.49 5.66a2 2 0 0 0 0 2.83z"/></svg>'
-                                
-                                params = f'{icon_temp} {temp}°C · {icon_timer} {segundos_a_mmss(tiempo)} · {icon_speed} Vel {vel}'
-                                html_pasos += f'<div class="text-sm text-gray-600 dark:text-gray-400 mt-1">{params}</div>'
-                            
-                            html_pasos += f'</div>'
-                        html_pasos += '</div>'
-                        pasos_lista.set_content(html_pasos)
-                        pasos_expansion.set_visibility(True)
-                    else:
-                        pasos_expansion.set_visibility(False)
+                    renderizar_pasos_receta(receta)
                 else:
                     ESTADO_RECETA['nombre'] = "(ninguna)"
                     tiempo_row.set_visibility(False)
@@ -1342,9 +1350,9 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         
                         # Badge de tipo de ejecución
                         if proceso.es_manual():
-                            ui.badge('MANUAL', color='purple').props('outline')
+                            ui.badge('MANUAL', color='purple').classes('text-white')
                         else:
-                            ui.badge('AUTOMÁTICO', color='green').props('outline')
+                            ui.badge('AUTOMÁTICO', color='green').classes('text-white')
                         
                         ui.separator()
                         
@@ -2241,18 +2249,19 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     
                                     with ui.row().classes('ml-4 items-center gap-6 px-4 py-1 rounded-lg'):
                                         # Temperatura
-                                        with ui.row().classes('items-center gap-1'):
+                                        with ui.row().classes('items-center gap-2'):
                                             ui.icon('thermostat', size='sm').classes('text-red-500 dark:text-red-400')
-                                            ui.label(f'{temp}').classes('text-sm text-gray-600 dark:text-gray-400')
-                                            ui.label('°C').classes('text-sm text-gray-600 dark:text-gray-400')
+                                            ui.label(f'{temp}°C').classes('text-sm text-gray-600 dark:text-gray-400')
+
+                                            ui.label('·')
                                         
                                         # Tiempo
-                                        with ui.row().classes('items-center gap-1'):
                                             ui.icon('timer', size='sm').classes('text-orange-500 dark:text-orange-400')
                                             ui.label(segundos_a_mmss(tiempo)).classes('text-sm text-gray-600 dark:text-gray-400')
+
+                                            ui.label('·')
                                         
                                         # Velocidad
-                                        with ui.row().classes('items-center gap-1'):
                                             ui.icon('speed', size='sm').classes('text-blue-500 dark:text-blue-400')
                                             ui.label(f'{vel}').classes('text-sm text-gray-600 dark:text-gray-400')
 

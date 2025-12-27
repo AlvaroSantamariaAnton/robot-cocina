@@ -1,9 +1,5 @@
 # EFDOO
 
-## Bugs
-
-## Features a implementar
-
 ## Última implementación - Modo Manual Completo
 
 ```ruby
