@@ -2,7 +2,7 @@ import sqlite3
 import json
 from typing import List, Optional, Dict, Tuple, Any
 
-from .modelos import ProcesoCocina, PasoReceta, Receta
+from .modelos import ProcesoCocina, ProcesoManual, ProcesoAutomatico, PasoReceta, Receta
 from data.init_db import conectar, reinicio_fabrica, inicializar_bd
 
 
@@ -16,14 +16,26 @@ def _fila_a_proceso_base(fila: Tuple) -> ProcesoCocina:
     Estructura de fila: (id, nombre, tipo, tipo_ejecucion, instrucciones)
     """
     id_, nombre, tipo, tipo_ejecucion, instrucciones = fila
-    return ProcesoCocina(
-        id_=id_,
-        nombre=nombre,
-        tipo=tipo,
-        tipo_ejecucion=tipo_ejecucion,
-        instrucciones=instrucciones,
-        origen="base",
-    )
+    
+    # Polimorfismo: Instanciar la subclase correcta según tipo_ejecucion
+    if tipo_ejecucion == "manual":
+        return ProcesoManual(
+            id_=id_,
+            nombre=nombre,
+            tipo=tipo,
+            tipo_ejecucion=tipo_ejecucion,
+            instrucciones=instrucciones,
+            origen="base",
+        )
+    else:
+        return ProcesoAutomatico(
+            id_=id_,
+            nombre=nombre,
+            tipo=tipo,
+            tipo_ejecucion=tipo_ejecucion,
+            instrucciones=instrucciones,
+            origen="base",
+        )
 
 
 def _fila_a_proceso_usuario(fila: Tuple) -> ProcesoCocina:
@@ -32,14 +44,26 @@ def _fila_a_proceso_usuario(fila: Tuple) -> ProcesoCocina:
     Estructura de fila: (id, nombre, tipo, tipo_ejecucion, instrucciones)
     """
     id_, nombre, tipo, tipo_ejecucion, instrucciones = fila
-    return ProcesoCocina(
-        id_=id_,
-        nombre=nombre,
-        tipo=tipo,
-        tipo_ejecucion=tipo_ejecucion,
-        instrucciones=instrucciones,
-        origen="usuario",
-    )
+    
+    # Polimorfismo: Instanciar la subclase correcta según tipo_ejecucion
+    if tipo_ejecucion == "manual":
+        return ProcesoManual(
+            id_=id_,
+            nombre=nombre,
+            tipo=tipo,
+            tipo_ejecucion=tipo_ejecucion,
+            instrucciones=instrucciones,
+            origen="usuario",
+        )
+    else:
+        return ProcesoAutomatico(
+            id_=id_,
+            nombre=nombre,
+            tipo=tipo,
+            tipo_ejecucion=tipo_ejecucion,
+            instrucciones=instrucciones,
+            origen="usuario",
+        )
 
 
 # ======================================================
@@ -158,14 +182,25 @@ def crear_proceso_usuario(
         )
         id_nuevo = cur.lastrowid
         conn.commit()
-        return ProcesoCocina(
-            id_=id_nuevo,
-            nombre=nombre,
-            tipo=tipo,
-            tipo_ejecucion=tipo_ejecucion,
-            instrucciones=instrucciones,
-            origen="usuario",
-        )
+        # Polimorfismo: Retornar la subclase correcta
+        if tipo_ejecucion == "manual":
+            return ProcesoManual(
+                id_=id_nuevo,
+                nombre=nombre,
+                tipo=tipo,
+                tipo_ejecucion=tipo_ejecucion,
+                instrucciones=instrucciones,
+                origen="usuario",
+            )
+        else:
+            return ProcesoAutomatico(
+                id_=id_nuevo,
+                nombre=nombre,
+                tipo=tipo,
+                tipo_ejecucion=tipo_ejecucion,
+                instrucciones=instrucciones,
+                origen="usuario",
+            )
     finally:
         conn.close()
 
@@ -320,14 +355,25 @@ def _cargar_recetas_generico(
                 (id_receta, orden, paso_temp, paso_tiempo, paso_vel, paso_instr,
                  pid, pnombre, ptipo, ptipo_ej, proc_instr) = fila
                 
-                proceso = ProcesoCocina(
-                    id_=pid,
-                    nombre=pnombre,
-                    tipo=ptipo,
-                    tipo_ejecucion=ptipo_ej,
-                    instrucciones=proc_instr,
-                    origen=origen,
-                )
+                # Polimorfismo: Instanciar la subclase correcta
+                if ptipo_ej == "manual":
+                    proceso = ProcesoManual(
+                        id_=pid,
+                        nombre=pnombre,
+                        tipo=ptipo,
+                        tipo_ejecucion=ptipo_ej,
+                        instrucciones=proc_instr,
+                        origen=origen,
+                    )
+                else:
+                    proceso = ProcesoAutomatico(
+                        id_=pid,
+                        nombre=pnombre,
+                        tipo=ptipo,
+                        tipo_ejecucion=ptipo_ej,
+                        instrucciones=proc_instr,
+                        origen=origen,
+                    )
                 paso = PasoReceta(
                     orden=orden,
                     proceso=proceso,
@@ -491,14 +537,25 @@ def crear_receta_usuario(
             (orden, paso_temp, paso_tiempo, paso_vel, paso_instr,
              pid, pnombre, ptipo, ptipo_ej, proc_instr, origen) = fila
             
-            proceso = ProcesoCocina(
-                id_=pid,
-                nombre=pnombre,
-                tipo=ptipo,
-                tipo_ejecucion=ptipo_ej,
-                instrucciones=proc_instr,
-                origen=origen,
-            )
+            # Polimorfismo: Instanciar la subclase correcta
+            if ptipo_ej == "manual":
+                proceso = ProcesoManual(
+                    id_=pid,
+                    nombre=pnombre,
+                    tipo=ptipo,
+                    tipo_ejecucion=ptipo_ej,
+                    instrucciones=proc_instr,
+                    origen=origen,
+                )
+            else:
+                proceso = ProcesoAutomatico(
+                    id_=pid,
+                    nombre=pnombre,
+                    tipo=ptipo,
+                    tipo_ejecucion=ptipo_ej,
+                    instrucciones=proc_instr,
+                    origen=origen,
+                )
             pasos_obj.append(
                 PasoReceta(
                     orden=orden,

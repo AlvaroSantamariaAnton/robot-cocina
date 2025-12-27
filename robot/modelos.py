@@ -2,6 +2,7 @@ import threading
 import time
 from typing import List, Optional, Callable, Dict, Any
 from utils.utils_tiempo import segundos_a_mmss
+from abc import ABC, abstractmethod
 
 
 # =========================
@@ -27,10 +28,10 @@ class ProcesoInterrumpidoError(Exception):
 # Modelos de dominio
 # =========================
 
-class ProcesoCocina:
+class ProcesoCocina(ABC):
     """
-    Representa un proceso genérico de cocina dentro del robot.
-
+    Clase base abstracta para procesos de cocina.
+    
     Esta clase se mapea con la tabla de procesos (base o usuario) en la BD.
     Ahora solo contiene metadatos del proceso, SIN parámetros de ejecución.
     """
@@ -47,7 +48,7 @@ class ProcesoCocina:
         self._id = id_
         self._nombre = nombre
         self._tipo = tipo
-        self._tipo_ejecucion = tipo_ejecucion  # "manual" o "automatico"
+        self._tipo_ejecucion = tipo_ejecucion  # Mantenido para compatibilidad
         self._instrucciones = instrucciones or ""
         self._origen = origen
 
@@ -75,24 +76,45 @@ class ProcesoCocina:
     def origen(self) -> str:
         return self._origen
 
+    @abstractmethod
     def es_manual(self) -> bool:
         """Devuelve True si el proceso requiere intervención manual."""
-        return self._tipo_ejecucion == "manual"
+        pass
 
+    @abstractmethod
     def descripcion_resumida(self) -> str:
         """Descripción resumida del proceso (solo nombre y tipo)."""
-        partes = [self._nombre]
-        if self._tipo_ejecucion == "manual":
-            partes.append("[MANUAL]")
-        else:
-            partes.append("[AUTOMÁTICO]")
-        return " - ".join(partes)
+        pass
 
     def __repr__(self) -> str:
         return (
-            f"ProcesoCocina(id={self._id}, nombre={self._nombre!r}, tipo={self._tipo!r}, "
+            f"{self.__class__.__name__}(id={self._id}, nombre={self._nombre!r}, tipo={self._tipo!r}, "
             f"tipo_ejecucion={self._tipo_ejecucion!r}, origen={self._origen!r})"
         )
+
+
+class ProcesoManual(ProcesoCocina):
+    """Proceso que requiere intervención manual del usuario."""
+    
+    def es_manual(self) -> bool:
+        """Devuelve True ya que es un proceso manual."""
+        return True
+
+    def descripcion_resumida(self) -> str:
+        """Descripción resumida del proceso manual."""
+        return f"{self._nombre} - [MANUAL]"
+
+
+class ProcesoAutomatico(ProcesoCocina):
+    """Proceso automático ejecutado por el robot."""
+    
+    def es_manual(self) -> bool:
+        """Devuelve False ya que es un proceso automático."""
+        return False
+
+    def descripcion_resumida(self) -> str:
+        """Descripción resumida del proceso automático."""
+        return f"{self._nombre} - [AUTOMÁTICO]"
 
 
 class PasoReceta:
