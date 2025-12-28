@@ -7,6 +7,8 @@ from robot.modelos import (
     EstadoRobot,
     RobotApagadoError,
     RecetaNoSeleccionadaError,
+    ModoManualError,           # NUEVO
+    ConflictoEjecucionError,   # NUEVO
 )
 from robot import servicios
 from utils.utils_tiempo import mmss_a_segundos, segundos_a_mmss
@@ -288,17 +290,19 @@ def registrar_vistas(robot: RobotCocina) -> None:
             def on_cambio_modo(e):
                 modo['valor'] = e.value
                 
-                # Restringir card de receta según el modo
                 if modo['valor'] == 'Manual':
-                    # Deshabilitar card de receta en modo manual
+                    # MODO MANUAL
+                    # Mostrar card de controles manuales
+                    card_controles_manual.set_visibility(True)
+                    
+                    # Bloquear card de receta (ya tiene el overlay)
                     select_receta.set_enabled(False)
                     boton_actualizar.set_enabled(False)
                     boton_nueva.set_enabled(False)
                     card_receta.classes(add='opacity-50 pointer-events-none')
-
                     mensaje_modo_manual.set_visibility(True)
                     
-                    # Limpiar selección si había algo seleccionado
+                    # Limpiar selección de receta
                     select_receta.value = None
                     seleccion['label_receta'] = None
                     ULTIMA_RECETA_SELECCIONADA['label'] = None
@@ -307,19 +311,21 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     ingredientes_expansion.set_visibility(False)
                     pasos_expansion.set_visibility(False)
                     
-                    ui.notify('Modo Manual: Controla el robot directamente sin recetas', type='info')
+                    ui.notify('Modo Manual: Usa los controles debajo', type='info')
                 else:
-                    # Habilitar card de receta en modo guiado
-                    # Solo habilitar si el robot NO está apagado
+                    # MODO GUIADO
+                    # Ocultar card de controles manuales
+                    card_controles_manual.set_visibility(False)
+                    
+                    # Habilitar card de receta
                     robot_apagado = robot.estado == EstadoRobot.APAGADO
                     select_receta.set_enabled(not robot_apagado)
                     boton_actualizar.set_enabled(not robot_apagado)
                     boton_nueva.set_enabled(not robot_apagado)
                     card_receta.classes(remove='opacity-50 pointer-events-none')
-
                     mensaje_modo_manual.set_visibility(False)
                     
-                    ui.notify('Modo Guiado: Selecciona una receta para cocinar', type='info')
+                    ui.notify('Modo Guiado: Selecciona una receta', type='info')
 
             # ============ BANNER DE ADVERTENCIA - ROBOT APAGADO ============
             banner_apagado = ui.card().classes(
@@ -532,14 +538,59 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.label('Control de Cocción').classes('text-xl font-bold text-gray-800 dark:text-white')
 
                         def iniciar_coccion():
-
-                            # ----------------------------------- ATENCION ----------------------------------------------
                             # Verificar modo de operación
                             if modo['valor'] == 'Manual':
-                                ui.notify('En modo manual no se usan recetas. Cambia a modo Guiado.', type='warning')
+                                # ===== MODO MANUAL =====
+                                if robot.estado == EstadoRobot.APAGADO:
+                                    ui.notify('Enciende el robot primero', type='warning')
+                                    return
+                                
+                                # Si ya está en manual y activo, no hacer nada
+                                if robot.manual_activo and robot.estado == EstadoRobot.COCINANDO:
+                                    ui.notify('La cocción manual ya está en curso', type='info')
+                                    return
+                                
+                                # Si está pausado, reanudar
+                                if robot.estado == EstadoRobot.PAUSADO and robot.manual_activo:
+                                    try:
+                                        # Reanudar con los valores actuales
+                                        robot.iniciar_manual(
+                                            temperatura=estado_manual['temperatura'],
+                                            velocidad=estado_manual['velocidad'],
+                                            tiempo=robot.manual_tiempo_restante or estado_manual['tiempo_segundos'],
+                                            forzar=True
+                                        )
+                                        ui.notify('Reanudando cocción manual...', type='positive')
+                                    except Exception as ex:
+                                        ui.notify(f'Error: {ex}', type='negative')
+                                    return
+                                
+                                # Iniciar nueva cocción manual
+                                try:
+                                    forzar = False
+                                    # Si hay una receta activa, preguntar
+                                    if robot.estado == EstadoRobot.COCINANDO and robot.receta_actual:
+                                        forzar = True  # Por ahora forzamos automáticamente
+                                    
+                                    robot.iniciar_manual(
+                                        temperatura=estado_manual['temperatura'],
+                                        velocidad=estado_manual['velocidad'],
+                                        tiempo=estado_manual['tiempo_segundos'],
+                                        forzar=forzar
+                                    )
+                                    ui.notify('Iniciando cocción manual', type='positive')
+                                    
+                                except ConflictoEjecucionError as ex:
+                                    ui.notify(str(ex), type='warning')
+                                except ModoManualError as ex:
+                                    ui.notify(str(ex), type='negative')
+                                except RobotApagadoError:
+                                    ui.notify('El robot debe estar encendido', type='negative')
+                                except Exception as ex:
+                                    ui.notify(f'Error: {ex}', type='negative')
                                 return
-                            # ----------------------------------- ATENCION ----------------------------------------------
 
+                            # ===== MODO GUIADO (código existente) =====
                             # Verificar si hay una receta completada pendiente
                             if ESTADO_COMPLETADO['mostrar']:
                                 ui.notify('Primero descarta la receta completada', type='warning')
@@ -561,8 +612,14 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             
                             if robot.estado == EstadoRobot.PAUSADO:
                                 try:
-                                    robot.iniciar_coccion()
+                                    forzar = False
+                                    # Si hay manual activo, forzar
+                                    if robot.manual_activo:
+                                        forzar = True
+                                    robot.iniciar_coccion(forzar=forzar)
                                     ui.notify('Reanudando...', type='positive')
+                                except ConflictoEjecucionError as ex:
+                                    ui.notify(str(ex), type='warning')
                                 except RobotApagadoError:
                                     ui.notify('Error: El robot debe estar encendido', type='negative')
                                 except RecetaNoSeleccionadaError:
@@ -586,9 +643,16 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 return
 
                             try:
+                                forzar = False
+                                # Si hay manual activo, forzar
+                                if robot.manual_activo:
+                                    forzar = True
+                                    
                                 robot.seleccionar_receta(receta)
-                                robot.iniciar_coccion()
+                                robot.iniciar_coccion(forzar=forzar)
                                 ui.notify(f'Iniciando: {receta.nombre}', type='positive')
+                            except ConflictoEjecucionError as ex:
+                                ui.notify(str(ex), type='warning')
                             except RobotApagadoError:
                                 ui.notify('El robot debe estar encendido para cocinar', type='negative')
                             except RecetaNoSeleccionadaError:
@@ -682,6 +746,202 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 'outline color=red icon=stop'
                             ).classes('w-full')
 
+            # ============ CONTROLES MANUALES CON GAUGES (ancho completo) ============
+            card_controles_manual = ui.card().classes(
+                'w-full !bg-gradient-to-br !from-slate-50 !to-gray-100 '
+                'dark:!from-gray-800 dark:!to-gray-900 '
+                'shadow-2xl !border-2 !border-purple-200 dark:!border-purple-800 rounded-2xl'
+            )
+            
+            with card_controles_manual:
+                with ui.column().classes('p-8 gap-6'):
+                    # ===== HEADER =====
+                    with ui.row().classes('items-center justify-between w-full'):
+                        with ui.row().classes('items-center gap-3'):
+                            ui.icon('tune', size='xl').classes('text-purple-600 dark:text-purple-400')
+                            ui.label('Controles Manuales').classes('text-3xl font-bold text-gray-800 dark:text-white')
+                    
+                    ui.separator().classes('my-2')
+                    
+                    # Estado de parámetros
+                    estado_manual = {
+                        'temperatura': 0,
+                        'velocidad': 0,
+                        'tiempo_segundos': 60,
+                    }
+                    
+                    # ===== GRID DE GAUGES (3 columnas) =====
+                    with ui.element('div').classes('grid grid-cols-1 md:grid-cols-3 gap-8 w-full'):
+                        
+                        # ========== TEMPERATURA ==========
+                        with ui.column().classes('items-center gap-4'):
+                            ui.label('Temperatura').classes('text-xl font-bold text-gray-700 dark:text-gray-300')
+                            
+                            # Contenedor del gauge circular
+                            with ui.column().classes('relative items-center justify-center'):
+                                # Gauge circular
+                                temp_gauge = ui.circular_progress(
+                                    value=0.0,
+                                    min=0,
+                                    max=1,
+                                    size='180px',
+                                    show_value=False
+                                ).props('color=red thickness=0.15 track-color=grey-3').classes('mb-4')
+                                
+                                # Valor en el centro - NEGRO/BLANCO según tema
+                                with ui.element('div').classes('absolute inset-0 flex items-center justify-center'):
+                                    temp_display = ui.label('0°C').classes(
+                                        'text-4xl font-bold text-gray-700 dark:text-gray-300'
+                                    )
+                            
+                            # Slider debajo del gauge
+                            with ui.row().classes('items-center gap-2 w-full max-w-xs'):
+                                ui.button(icon='remove', on_click=lambda: ajustar_temp(-5)).props(
+                                    'flat dense round size=sm color=red'
+                                )
+                                
+                                def on_temp_change(e):
+                                    valor = int(e.value)
+                                    estado_manual['temperatura'] = valor
+                                    temp_display.text = f"{valor}°C"
+                                    temp_gauge.value = valor / 120.0
+                                    
+                                    if robot.manual_activo:
+                                        try:
+                                            robot.ajustar_manual(temperatura=valor)
+                                            ui.notify(f'Temp: {valor}°C', type='info', position='top-right')
+                                        except Exception as ex:
+                                            ui.notify(f'Error: {ex}', type='negative')
+                                
+                                temp_slider = ui.slider(
+                                    min=0, max=120, step=5, value=0,
+                                    on_change=on_temp_change
+                                ).props('color=red').classes('flex-grow')
+                                
+                                ui.button(icon='add', on_click=lambda: ajustar_temp(5)).props(
+                                    'flat dense round size=sm color=red'
+                                )
+                            
+                            def ajustar_temp(delta):
+                                nuevo = max(0, min(120, estado_manual['temperatura'] + delta))
+                                temp_slider.value = nuevo
+                                on_temp_change(type('obj', (), {'value': nuevo})())
+                        
+                        # ========== TIEMPO ==========
+                        with ui.column().classes('items-center gap-4'):
+                            ui.label('Tiempo').classes('text-xl font-bold text-gray-700 dark:text-gray-300')
+                            
+                            # Gauge circular
+                            with ui.column().classes('relative items-center justify-center'):
+                                tiempo_gauge = ui.circular_progress(
+                                    value=0.0111,  # 60/5400 para empezar en 1:00
+                                    min=0,
+                                    max=1,
+                                    size='180px',
+                                    show_value=False
+                                ).props('color=orange thickness=0.15 track-color=grey-3').classes('mb-4')
+                                
+                                # Valor en el centro - NEGRO/BLANCO según tema
+                                with ui.element('div').classes('absolute inset-0 flex items-center justify-center'):
+                                    tiempo_display = ui.label('01:00').classes(
+                                        'text-4xl font-bold text-gray-700 dark:text-gray-300'
+                                    )
+                            
+                            # Botones de ajuste (2 filas)
+                            with ui.column().classes('gap-2 items-center'):
+                                # Fila 1: -10m, -1m, -10s
+                                with ui.row().classes('gap-2'):
+                                    ui.button('-10m', on_click=lambda: ajustar_tiempo(-600)).props(
+                                        'outline size=sm color=orange'
+                                    ).classes('min-w-[60px]')
+                                    ui.button('-1m', on_click=lambda: ajustar_tiempo(-60)).props(
+                                        'outline size=sm color=orange'
+                                    ).classes('min-w-[60px]')
+                                    ui.button('-10s', on_click=lambda: ajustar_tiempo(-10)).props(
+                                        'outline size=sm color=orange'
+                                    ).classes('min-w-[60px]')
+                                
+                                # Fila 2: +10s, +1m, +10m
+                                with ui.row().classes('gap-2'):
+                                    ui.button('+10s', on_click=lambda: ajustar_tiempo(10)).props(
+                                        'unelevated size=sm color=orange'
+                                    ).classes('min-w-[60px]')
+                                    ui.button('+1m', on_click=lambda: ajustar_tiempo(60)).props(
+                                        'unelevated size=sm color=orange'
+                                    ).classes('min-w-[60px]')
+                                    ui.button('+10m', on_click=lambda: ajustar_tiempo(600)).props(
+                                        'unelevated size=sm color=orange'
+                                    ).classes('min-w-[60px]')
+                            
+                            def ajustar_tiempo(delta_segundos):
+                                from utils.utils_tiempo import segundos_a_mmss
+                                nuevo_tiempo = max(1, min(5400, estado_manual['tiempo_segundos'] + delta_segundos))
+                                estado_manual['tiempo_segundos'] = nuevo_tiempo
+                                tiempo_str = segundos_a_mmss(nuevo_tiempo)
+                                tiempo_display.text = tiempo_str
+                                tiempo_gauge.value = nuevo_tiempo / 5400.0
+                                
+                                if robot.manual_activo:
+                                    try:
+                                        robot.ajustar_manual(tiempo=nuevo_tiempo)
+                                    except Exception as ex:
+                                        ui.notify(f'Error: {ex}', type='negative')
+                        
+                        # ========== VELOCIDAD ==========
+                        with ui.column().classes('items-center gap-4'):
+                            ui.label('Velocidad').classes('text-xl font-bold text-gray-700 dark:text-gray-300')
+                            
+                            # Gauge circular
+                            with ui.column().classes('relative items-center justify-center'):
+                                vel_gauge = ui.circular_progress(
+                                    value=0.0,
+                                    min=0,
+                                    max=1,
+                                    size='180px',
+                                    show_value=False
+                                ).props('color=blue thickness=0.15 track-color=grey-3').classes('mb-4')
+                                
+                                # Valor en el centro - NEGRO/BLANCO según tema
+                                with ui.element('div').classes('absolute inset-0 flex items-center justify-center'):
+                                    vel_display = ui.label('0').classes(
+                                        'text-4xl font-bold text-gray-700 dark:text-gray-300'
+                                    )
+                            
+                            # Slider debajo del gauge
+                            with ui.row().classes('items-center gap-2 w-full max-w-xs'):
+                                ui.button(icon='remove', on_click=lambda: ajustar_vel(-1)).props(
+                                    'flat dense round size=sm color=blue'
+                                )
+                                
+                                def on_vel_change(e):
+                                    valor = int(e.value)
+                                    estado_manual['velocidad'] = valor
+                                    vel_display.text = str(valor)
+                                    vel_gauge.value = valor / 10.0
+                                    
+                                    if robot.manual_activo:
+                                        try:
+                                            robot.ajustar_manual(velocidad=valor)
+                                            ui.notify(f'Vel: {valor}', type='info', position='top-right')
+                                        except Exception as ex:
+                                            ui.notify(f'Error: {ex}', type='negative')
+                                
+                                vel_slider = ui.slider(
+                                    min=0, max=10, step=1, value=0,
+                                    on_change=on_vel_change
+                                ).props('color=blue').classes('flex-grow')
+                                
+                                ui.button(icon='add', on_click=lambda: ajustar_vel(1)).props(
+                                    'flat dense round size=sm color=blue'
+                                )
+                            
+                            def ajustar_vel(delta):
+                                nuevo = max(0, min(10, estado_manual['velocidad'] + delta))
+                                vel_slider.value = nuevo
+                                on_vel_change(type('obj', (), {'value': nuevo})())
+            
+            card_controles_manual.set_visibility(False)
+            
             # ============ FILA 3: INGREDIENTES (expandible) ============
             ingredientes_expansion = ui.expansion(
                 'Ingredientes Necesarios',
@@ -1322,6 +1582,79 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     paso_label.text = 'Paso Actual'
                     boton_confirmar.set_visibility(False)
 
+                # ===== ACTUALIZAR ESTADO MANUAL =====
+                if robot.manual_activo:
+                    from utils.utils_tiempo import segundos_a_mmss
+                    
+                    # Temperatura
+                    temp_slider.value = robot.manual_temperatura
+                    temp_display.text = f"{robot.manual_temperatura}°C"
+                    temp_gauge.value = robot.manual_temperatura / 120.0  # ← GAUGE
+                    
+                    # Velocidad
+                    vel_slider.value = robot.manual_velocidad
+                    vel_display.text = str(robot.manual_velocidad)
+                    vel_gauge.value = robot.manual_velocidad / 10.0  # ← GAUGE
+                    
+                    # Tiempo
+                    tiempo_str = segundos_a_mmss(robot.manual_tiempo_restante)
+                    tiempo_display.text = tiempo_str
+                    tiempo_gauge.value = robot.manual_tiempo_restante / 5400.0  # ← GAUGE
+                    
+                    # Actualizar estado_manual
+                    estado_manual['temperatura'] = robot.manual_temperatura
+                    estado_manual['velocidad'] = robot.manual_velocidad
+                    estado_manual['tiempo_segundos'] = robot.manual_tiempo_restante
+
+            # ============ RESTAURAR ESTADO MANUAL AL CARGAR ============
+            def restaurar_estado_manual():
+                """
+                Restaura el estado del modo manual al cargar la página.
+                Esto asegura persistencia si el robot está cocinando en manual
+                y el usuario navega entre páginas.
+                """
+                if robot.manual_activo:
+                    # Robot está en modo manual activo
+                    modo['valor'] = 'Manual'
+                    toggle_modo.value = 'Manual'
+                    
+                    # Mostrar card de controles
+                    card_controles_manual.set_visibility(True)
+                    
+                    # Bloquear card de receta
+                    select_receta.set_enabled(False)
+                    boton_actualizar.set_enabled(False)
+                    boton_nueva.set_enabled(False)
+                    card_receta.classes(add='opacity-50 pointer-events-none')
+                    mensaje_modo_manual.set_visibility(True)
+                    
+                    # Ocultar expansiones de receta
+                    ingredientes_expansion.set_visibility(False)
+                    pasos_expansion.set_visibility(False)
+                    
+                    # Actualizar valores de los controles con estado actual
+                    from utils.utils_tiempo import segundos_a_mmss
+                    
+                    # Temperatura
+                    temp_slider.value = robot.manual_temperatura
+                    temp_display.text = f"{robot.manual_temperatura}°C"
+                    temp_gauge.value = robot.manual_temperatura / 120.0  # ← GAUGE
+                    estado_manual['temperatura'] = robot.manual_temperatura
+                    
+                    # Velocidad
+                    vel_slider.value = robot.manual_velocidad
+                    vel_display.text = str(robot.manual_velocidad)
+                    vel_gauge.value = robot.manual_velocidad / 10.0  # ← GAUGE
+                    estado_manual['velocidad'] = robot.manual_velocidad
+                    
+                    # Tiempo
+                    tiempo_str = segundos_a_mmss(robot.manual_tiempo_restante)
+                    tiempo_display.text = tiempo_str
+                    tiempo_gauge.value = robot.manual_tiempo_restante / 5400.0  # ← GAUGE
+                    estado_manual['tiempo_segundos'] = robot.manual_tiempo_restante
+            # Restaurar estado inmediatamente al cargar
+            restaurar_estado_manual()
+            
             ui.timer(interval=0.5, callback=refrescar_ui)
             ui.timer(interval=0.5, callback=monitor_global_recetas)
             refrescar_recetas()
