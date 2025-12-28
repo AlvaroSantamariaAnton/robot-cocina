@@ -2287,7 +2287,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ui.button('Cerrar', on_click=dlg.close).props('flat')
 
                             # SOLO permitir borrar recetas de usuario
-                            if getattr(receta, 'origen', 'usuario') == 'usuario':
+                            if receta.es_editable():
                                 with ui.dialog() as confirm_dialog:
                                     with ui.card().classes('p-6'):
                                         ui.label('¿Eliminar receta?').classes('text-xl font-bold mb-2')

@@ -23,12 +23,36 @@ class ProcesoInterrumpidoError(Exception):
     """Se lanza cuando un proceso es detenido antes de finalizar."""
     pass
 
+# =========================
+# Mixin para origen
+# =========================
+
+class ConOrigen:
+    """
+    Mixin para entidades que tienen origen (base/usuario).
+    Proporciona funcionalidad común relacionada con el origen.
+    """
+    def __init__(self, *args, origen: str = "base", **kwargs):
+        super().__init__(*args, **kwargs)
+        self._origen = origen
+    
+    @property
+    def origen(self) -> str:
+        return self._origen
+    
+    def es_de_fabrica(self) -> bool:
+        """Devuelve True si la entidad es de fábrica (base)."""
+        return self._origen == "base"
+    
+    def es_de_usuario(self) -> bool:
+        """Devuelve True si la entidad fue creada por el usuario."""
+        return self._origen == "usuario"
 
 # =========================
 # Modelos de dominio
 # =========================
 
-class ProcesoCocina(ABC):
+class ProcesoCocina(ABC, ConOrigen):
     """
     Clase base abstracta para procesos de cocina.
     
@@ -45,12 +69,12 @@ class ProcesoCocina(ABC):
         instrucciones: Optional[str],
         origen: str = "base",
     ) -> None:
+        super().__init__(origen=origen)  # ← Llama al mixin
         self._id = id_
         self._nombre = nombre
         self._tipo = tipo
-        self._tipo_ejecucion = tipo_ejecucion  # Mantenido para compatibilidad
+        self._tipo_ejecucion = tipo_ejecucion
         self._instrucciones = instrucciones or ""
-        self._origen = origen
 
     @property
     def id(self) -> Optional[int]:
@@ -71,10 +95,6 @@ class ProcesoCocina(ABC):
     @property
     def instrucciones(self) -> str:
         return self._instrucciones
-
-    @property
-    def origen(self) -> str:
-        return self._origen
 
     @abstractmethod
     def es_manual(self) -> bool:
@@ -178,8 +198,8 @@ class PasoReceta:
         )
 
 
-class Receta:
-    """Receta formada por varios pasos de cocina."""
+class Receta(ConOrigen, ABC):
+    """Clase base abstracta para recetas de cocina."""
 
     def __init__(
         self,
@@ -190,13 +210,12 @@ class Receta:
         pasos: List[PasoReceta],
         origen: str = "base",
     ) -> None:
+        super().__init__(origen=origen)  # ← Llama al mixin
         self._id = id_
         self._nombre = nombre
         self._descripcion = descripcion
-        self._ingredientes = ingredientes  # Lista de dicts: {nombre, cantidad, unidad, nota}
-        # Aseguramos que los pasos están ordenados
+        self._ingredientes = ingredientes
         self._pasos = sorted(pasos, key=lambda p: p.orden)
-        self._origen = origen
 
     @property
     def id(self) -> Optional[int]:
@@ -216,21 +235,70 @@ class Receta:
 
     @property
     def pasos(self) -> List[PasoReceta]:
-        # Devolvemos copia para no permitir modificaciones externas directas
         return list(self._pasos)
-
-    @property
-    def origen(self) -> str:
-        return self._origen
 
     def numero_pasos(self) -> int:
         return len(self._pasos)
 
+    @abstractmethod
+    def es_editable(self) -> bool:
+        """Indica si la receta puede ser modificada o eliminada."""
+        pass
+
+    @abstractmethod
+    def icono_origen(self) -> str:
+        """Devuelve el icono que representa el origen de la receta."""
+        pass
+
     def __repr__(self) -> str:
         return (
-            f"Receta(id={self._id}, nombre={self._nombre!r}, origen={self._origen!r}, "
-            f"pasos={len(self._pasos)})"
+            f"{self.__class__.__name__}(id={self._id}, nombre={self._nombre!r}, "
+            f"origen={self._origen!r}, pasos={len(self._pasos)})"
         )
+
+
+class RecetaBase(Receta):
+    """Receta de fábrica (no editable)."""
+    
+    def __init__(
+        self,
+        id_: Optional[int],
+        nombre: str,
+        descripcion: str,
+        ingredientes: List[Dict[str, Any]],
+        pasos: List[PasoReceta],
+    ) -> None:
+        super().__init__(id_, nombre, descripcion, ingredientes, pasos, origen="base")
+    
+    def es_editable(self) -> bool:
+        """Las recetas de fábrica no se pueden editar."""
+        return False
+    
+    def icono_origen(self) -> str:
+        """Icono de fábrica."""
+        return "factory"
+
+
+class RecetaUsuario(Receta):
+    """Receta creada por el usuario (editable)."""
+    
+    def __init__(
+        self,
+        id_: Optional[int],
+        nombre: str,
+        descripcion: str,
+        ingredientes: List[Dict[str, Any]],
+        pasos: List[PasoReceta],
+    ) -> None:
+        super().__init__(id_, nombre, descripcion, ingredientes, pasos, origen="usuario")
+    
+    def es_editable(self) -> bool:
+        """Las recetas de usuario sí se pueden editar."""
+        return True
+    
+    def icono_origen(self) -> str:
+        """Icono de usuario."""
+        return "person"
 
 
 # =========================

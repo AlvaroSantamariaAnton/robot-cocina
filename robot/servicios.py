@@ -2,7 +2,10 @@ import sqlite3
 import json
 from typing import List, Optional, Dict, Tuple, Any
 
-from .modelos import ProcesoCocina, ProcesoManual, ProcesoAutomatico, PasoReceta, Receta
+from .modelos import (
+    ProcesoCocina, ProcesoManual, ProcesoAutomatico, 
+    PasoReceta, Receta, RecetaBase, RecetaUsuario
+)
 from data.init_db import conectar, reinicio_fabrica, inicializar_bd
 
 
@@ -397,16 +400,24 @@ def _cargar_recetas_generico(
                 except Exception:
                     pass
             
-            recetas.append(
-                Receta(
+            # Polimorfismo: Instanciar la subclase correcta según origen
+            if origen == "base":
+                receta = RecetaBase(
                     id_=id_receta,
                     nombre=nombre,
                     descripcion=descripcion or "",
                     ingredientes=ingredientes,
                     pasos=pasos,
-                    origen=origen,
                 )
-            )
+            else:
+                receta = RecetaUsuario(
+                    id_=id_receta,
+                    nombre=nombre,
+                    descripcion=descripcion or "",
+                    ingredientes=ingredientes,
+                    pasos=pasos,
+                )
+            recetas.append(receta)
 
         return recetas
     finally:
@@ -575,13 +586,12 @@ def crear_receta_usuario(
             except Exception:
                 pass
 
-        return Receta(
+        return RecetaUsuario(
             id_=id_receta,
             nombre=fila_receta[1],
             descripcion=fila_receta[2] or "",
             ingredientes=ingredientes_parsed,
             pasos=pasos_obj,
-            origen="usuario",
         )
     finally:
         conn.close()
