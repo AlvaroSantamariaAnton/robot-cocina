@@ -2125,12 +2125,12 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     
                     # ========== FUNCIONES DE PERSISTENCIA ==========
                     def guardar_nombre_desc():
-                        """Guarda nombre y descripción en localStorage."""
+                        """Guarda nombre y descripción en sessionStorage."""
                         import json
                         nombre_val = input_nombre_receta.value or ''
                         desc_val = input_desc_receta.value or ''
-                        ui.run_javascript(f"localStorage.setItem('receta_nombre', {json.dumps(nombre_val)})")
-                        ui.run_javascript(f"localStorage.setItem('receta_descripcion', {json.dumps(desc_val)})")
+                        ui.run_javascript(f"sessionStorage.setItem('receta_nombre', {json.dumps(nombre_val)})")
+                        ui.run_javascript(f"sessionStorage.setItem('receta_descripcion', {json.dumps(desc_val)})")
                     
                     # Guardar cada vez que cambian los valores
                     input_nombre_receta.on_value_change(lambda: guardar_nombre_desc())
@@ -2142,12 +2142,12 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     
                     # ========== FUNCIONES DE PERSISTENCIA ==========
                     def guardar_ingredientes_ls():
-                        """Guarda ingredientes en localStorage."""
+                        """Guarda ingredientes en sessionStorage."""
                         import json
-                        ui.run_javascript(f"localStorage.setItem('receta_ingredientes', {repr(json.dumps(ingredientes_temp))})")  
+                        ui.run_javascript(f"sessionStorage.setItem('receta_ingredientes', {repr(json.dumps(ingredientes_temp))})")  
                     
                     def guardar_pasos_ls():
-                        """Guarda pasos en localStorage."""
+                        """Guarda pasos en sessionStorage."""
                         import json
                         pasos_serializable = [{
                             'orden': p['orden'],
@@ -2159,15 +2159,15 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             'vel': p['vel'],
                             'instr': p['instr']
                         } for p in pasos_temp]
-                        ui.run_javascript(f"localStorage.setItem('receta_pasos', {repr(json.dumps(pasos_serializable))})")  
+                        ui.run_javascript(f"sessionStorage.setItem('receta_pasos', {repr(json.dumps(pasos_serializable))})")  
                     
                     def limpiar_estado_formulario():
                         """Limpia el estado guardado del formulario."""
                         ui.run_javascript('''
-                            localStorage.removeItem('receta_nombre');
-                            localStorage.removeItem('receta_descripcion');
-                            localStorage.removeItem('receta_ingredientes');
-                            localStorage.removeItem('receta_pasos');
+                            sessionStorage.removeItem('receta_nombre');
+                            sessionStorage.removeItem('receta_descripcion');
+                            sessionStorage.removeItem('receta_ingredientes');
+                            sessionStorage.removeItem('receta_pasos');
                         ''')
 
                     with ui.row().classes('items-center justify-between'):
@@ -2225,9 +2225,9 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                     # ========== CARGAR DATOS GUARDADOS ==========
                     def cargar_estado_inicial():
-                        """Carga nombre, descripción, ingredientes y pasos desde localStorage."""
+                        """Carga nombre, descripción, ingredientes y pasos desde sessionStorage."""
                         ui.run_javascript(f'''
-                            const nombre = localStorage.getItem('receta_nombre');
+                            const nombre = sessionStorage.getItem('receta_nombre');
                             if (nombre) {{
                                 try {{
                                     emitEvent('cargar_nombre', JSON.parse(nombre));
@@ -2235,7 +2235,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     console.error('Error cargando nombre:', e);
                                 }}
                             }}
-                            const desc = localStorage.getItem('receta_descripcion');
+                            const desc = sessionStorage.getItem('receta_descripcion');
                             if (desc) {{
                                 try {{
                                     emitEvent('cargar_descripcion', JSON.parse(desc));
@@ -2243,7 +2243,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     console.error('Error cargando descripción:', e);
                                 }}
                             }}
-                            const ings = localStorage.getItem('receta_ingredientes');
+                            const ings = sessionStorage.getItem('receta_ingredientes');
                             if (ings) {{
                                 try {{
                                     emitEvent('cargar_ingredientes', JSON.parse(ings));
@@ -2251,7 +2251,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     console.error('Error cargando ingredientes:', e);
                                 }}
                             }}
-                            const pasos = localStorage.getItem('receta_pasos');
+                            const pasos = sessionStorage.getItem('receta_pasos');
                             if (pasos) {{
                                 try {{
                                     emitEvent('cargar_pasos', JSON.parse(pasos));
@@ -2276,7 +2276,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             actualizar_tabla_ings()
                     
                     def on_cargar_pasos(e):
-                        """Carga pasos guardados desde localStorage."""
+                        """Carga pasos guardados desde sessionStorage."""
                         if e.args:
                             pasos_temp.clear()
                             for paso_data in e.args:
