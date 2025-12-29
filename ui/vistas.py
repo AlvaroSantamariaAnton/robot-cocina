@@ -348,6 +348,26 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     card_receta.classes(remove='opacity-50 pointer-events-none')
                     mensaje_modo_manual.set_visibility(False)
                     
+                    # ← AGREGAR ESTO: Resetear controles manuales al salir del modo manual
+                    from utils.utils_tiempo import segundos_a_mmss
+                    
+                    # Resetear temperatura a 0
+                    estado_manual['temperatura'] = 0
+                    temp_slider.value = 0
+                    temp_display.text = "0°C"
+                    temp_gauge.value = 0.0
+                    
+                    # Resetear velocidad a 0
+                    estado_manual['velocidad'] = 0
+                    vel_slider.value = 0
+                    vel_display.text = "0"
+                    vel_gauge.value = 0.0
+                    
+                    # Resetear tiempo a 00:00
+                    estado_manual['tiempo_segundos'] = 0
+                    tiempo_display.text = "00:00"
+                    tiempo_gauge.value = 0.0
+
             # ============ BANNER DE ADVERTENCIA - ROBOT APAGADO ============
             banner_apagado = ui.card().classes(
                 'w-full bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 '
