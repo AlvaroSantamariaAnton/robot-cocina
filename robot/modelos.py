@@ -874,15 +874,19 @@ class RobotCocina:
                     # Verificar cancelación o apagado
                     if self._manual_parar or self._estado == EstadoRobot.APAGADO:
                         self._reset_estado_manual()
-                        self._estado = EstadoRobot.ESPERA
+                        # Solo cambiar a ESPERA si NO está apagado
+                        if self._estado != EstadoRobot.APAGADO:
+                            self._estado = EstadoRobot.ESPERA
                         self._estrategia_actual = None
                         self._notificar_cambio()
                         return
                     
                     # Verificar pausa
                     if self._manual_pausado:
-                        self._estado = EstadoRobot.PAUSADO
-                        self._notificar_cambio()
+                        # Solo pausar si no está apagado
+                        if self._estado != EstadoRobot.APAGADO:
+                            self._estado = EstadoRobot.PAUSADO
+                            self._notificar_cambio()
                         return
                     
                     # Decrementar temporizador
@@ -893,14 +897,18 @@ class RobotCocina:
                     # Verificar finalización
                     if self._manual_tiempo_restante <= 0:
                         self._reset_estado_manual()
-                        self._estado = EstadoRobot.ESPERA
+                        # Solo cambiar a ESPERA si NO está apagado
+                        if self._estado != EstadoRobot.APAGADO:
+                            self._estado = EstadoRobot.ESPERA
                         self._estrategia_actual = None
                         self._notificar_cambio()
                         return
                         
         except Exception:
             with self._lock:
-                self._estado = EstadoRobot.ERROR
+                # Solo cambiar a ERROR si no está apagado
+                if self._estado != EstadoRobot.APAGADO:
+                    self._estado = EstadoRobot.ERROR
                 self._reset_estado_manual()
                 self._estrategia_actual = None
                 self._notificar_cambio()
@@ -1025,7 +1033,9 @@ class RobotCocina:
                     self._notificar_cambio()
         except Exception:
             with self._lock:
-                self._estado = EstadoRobot.ERROR
+                # Solo cambiar a ERROR si no está apagado
+                if self._estado != EstadoRobot.APAGADO:
+                    self._estado = EstadoRobot.ERROR
                 self._estrategia_actual = None
                 self._notificar_cambio()
 

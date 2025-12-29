@@ -134,6 +134,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
         'ultimo_estado': EstadoRobot.ESPERA,
         'ultimo_paso_index': -1,
         'total_pasos_receta': 0,
+        'manual_estaba_activo': False,
     }
     ESTADO_COMPLETADO = {
         'mostrar': False,
@@ -198,45 +199,68 @@ def registrar_vistas(robot: RobotCocina) -> None:
     # NUEVO: Función de monitoreo mejorada
     def monitor_global_recetas():
         """
-        Monitorea el robot y dispara notificaciones cuando detecta una receta completada.
+        Monitorea el robot y dispara notificaciones cuando detecta una receta completada
+        o cuando el modo manual se completa.
         
-        Lógica: Una receta está completada si:
+        Lógica receta completada:
         1. El robot está en ESPERA (no cocinando)
         2. Hay una receta actual cargada
         3. El progreso es 0% o cercano a 100%
         4. La receta NO ha sido notificada todavía
+        
+        Lógica modo manual completado:
+        1. El robot está en ESPERA
+        2. El modo manual NO está activo (acaba de terminar)
+        3. Aún no se ha notificado
         """
         estado_actual = robot.estado
         receta_actual = robot.receta_actual
         
+        # ===== DETECTAR RECETA COMPLETADA =====
         # Solo notificar si hay una receta y el robot está en espera
-        if estado_actual != EstadoRobot.ESPERA or receta_actual is None:
-            return
+        if estado_actual == EstadoRobot.ESPERA and receta_actual is not None:
+            # Obtener progreso
+            prog_actual = float(getattr(robot, 'progreso', 0.0) or 0.0)
+            
+            # Detectar receta completada: progreso en 0 o cercano a 100
+            # (el robot resetea a 0 después de completar)
+            receta_completada = (prog_actual >= 99.0) or (prog_actual == 0.0 and ESTADO_BARRA.get('ultimo_progreso', 0.0) > 50.0)
+            
+            if receta_completada:
+                # Verificar si ya fue notificada
+                receta_id = receta_actual.id
+                if receta_id not in NOTIFICACIONES_MOSTRADAS:
+                    # ¡Notificar!
+                    NOTIFICACIONES_MOSTRADAS.add(receta_id)
+                    ui.notify(
+                        f'¡Receta "{receta_actual.nombre}" completada!',
+                        type='positive',
+                        position='top',
+                        timeout=5000,
+                        close_button=False
+                    )
         
-        # Obtener progreso
-        prog_actual = float(getattr(robot, 'progreso', 0.0) or 0.0)
+        # ===== DETECTAR MODO MANUAL COMPLETADO =====
+        # Detectar cuando el modo manual acaba de terminar
+        if estado_actual == EstadoRobot.ESPERA and not robot.manual_activo:
+            # Si antes estaba activo y ahora no, significa que acaba de terminar
+            if ESTADO_BARRA.get('manual_estaba_activo', False):
+                # Verificar si ya fue notificada
+                if 'manual_completado' not in NOTIFICACIONES_MOSTRADAS:
+                    NOTIFICACIONES_MOSTRADAS.add('manual_completado')
+                    ui.notify(
+                        '¡Cocción manual completada!',
+                        type='positive',
+                        position='top',
+                        timeout=5000,
+                        close_button=False
+                    )
+                # Limpiar flag
+                ESTADO_BARRA['manual_estaba_activo'] = False
         
-        # Detectar receta completada: progreso en 0 o cercano a 100
-        # (el robot resetea a 0 después de completar)
-        receta_completada = (prog_actual >= 99.0) or (prog_actual == 0.0 and ESTADO_BARRA.get('ultimo_progreso', 0.0) > 50.0)
-        
-        if not receta_completada:
-            return
-        
-        # Verificar si ya fue notificada
-        receta_id = receta_actual.id
-        if receta_id in NOTIFICACIONES_MOSTRADAS:
-            return
-        
-        # ¡Notificar!
-        NOTIFICACIONES_MOSTRADAS.add(receta_id)
-        ui.notify(
-            f'¡Receta "{receta_actual.nombre}" completada!',
-            type='positive',
-            position='top',
-            timeout=5000,
-            close_button=False
-        )
+        # Actualizar flag de manual activo para detectar transiciones
+        if robot.manual_activo:
+            ESTADO_BARRA['manual_estaba_activo'] = True
 
     # ==================================================================================
     # PANEL PRINCIPAL - DASHBOARD
@@ -284,7 +308,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
         # Contenedor principal
         with ui.column().classes('p-6 max-w-7xl mx-auto gap-6 w-full min-h-screen bg-gray-50 dark:bg-gray-900'):
 
-            # ================== MODO DE OPERACIÓN (solo UI por ahora) ==================
+            # ================== MODO DE OPERACIÓN ==================
             modo = {'valor': 'Guiado'}
 
             def on_cambio_modo(e):
@@ -311,7 +335,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     ingredientes_expansion.set_visibility(False)
                     pasos_expansion.set_visibility(False)
                     
-                    ui.notify('Modo Manual: Usa los controles debajo', type='info')
                 else:
                     # MODO GUIADO
                     # Ocultar card de controles manuales
@@ -325,8 +348,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     card_receta.classes(remove='opacity-50 pointer-events-none')
                     mensaje_modo_manual.set_visibility(False)
                     
-                    ui.notify('Modo Guiado: Selecciona una receta', type='info')
-
             # ============ BANNER DE ADVERTENCIA - ROBOT APAGADO ============
             banner_apagado = ui.card().classes(
                 'w-full bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 '
@@ -414,6 +435,32 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
                                 banner_apagado.set_visibility(True)
                                 paso_auto_card.set_visibility(False)
+                                
+                                # Resetear selector de modo a Guiado
+                                modo['valor'] = 'Guiado'
+                                toggle_modo.value = 'Guiado'
+                                card_controles_manual.set_visibility(False)
+                                mensaje_modo_manual.set_visibility(False)
+                                
+                                # Resetear todos los gauges manuales a 0
+                                from utils.utils_tiempo import segundos_a_mmss
+                                
+                                # Resetear temperatura
+                                estado_manual['temperatura'] = 0
+                                temp_slider.value = 0
+                                temp_display.text = "0°C"
+                                temp_gauge.value = 0.0
+                                
+                                # Resetear velocidad
+                                estado_manual['velocidad'] = 0
+                                vel_slider.value = 0
+                                vel_display.text = "0"
+                                vel_gauge.value = 0.0
+                                
+                                # Resetear tiempo a 00:00
+                                estado_manual['tiempo_segundos'] = 0
+                                tiempo_display.text = "00:00"
+                                tiempo_gauge.value = 0.0
 
                                 ui.notify('Robot apagado', type='warning', position='top')
                             refrescar_ui()
@@ -543,6 +590,11 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 # ===== MODO MANUAL =====
                                 if robot.estado == EstadoRobot.APAGADO:
                                     ui.notify('Enciende el robot primero', type='warning')
+                                    return
+                                
+                                # Validar que haya tiempo configurado (no 00:00)
+                                if estado_manual['tiempo_segundos'] == 0:
+                                    ui.notify('Debes ingresar tiempo en el temporizador antes de iniciar', type='warning')
                                     return
                                 
                                 # Si ya está en manual y activo, no hacer nada
@@ -709,6 +761,26 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             paso_auto_card.set_visibility(False)
                             paso_label.text = 'Paso Actual'
                             boton_confirmar.set_visibility(False)
+                            
+                            # Resetear controles manuales a 0 (incluido el tiempo a 00:00)
+                            from utils.utils_tiempo import segundos_a_mmss
+                            
+                            # Resetear temperatura
+                            estado_manual['temperatura'] = 0
+                            temp_slider.value = 0
+                            temp_display.text = "0°C"
+                            temp_gauge.value = 0.0
+                            
+                            # Resetear velocidad
+                            estado_manual['velocidad'] = 0
+                            vel_slider.value = 0
+                            vel_display.text = "0"
+                            vel_gauge.value = 0.0
+                            
+                            # Resetear tiempo a 00:00
+                            estado_manual['tiempo_segundos'] = 0
+                            tiempo_display.text = "00:00"
+                            tiempo_gauge.value = 0.0
 
                             # Desbloquear cards de selección y modo
                             set_cards_bloqueadas(False)
@@ -767,7 +839,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     estado_manual = {
                         'temperatura': 0,
                         'velocidad': 0,
-                        'tiempo_segundos': 60,
+                        'tiempo_segundos': 0,
                     }
                     
                     # ===== GRID DE GAUGES (3 columnas) =====
@@ -809,7 +881,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     if robot.manual_activo:
                                         try:
                                             robot.ajustar_manual(temperatura=valor)
-                                            ui.notify(f'Temp: {valor}°C', type='info', position='top-right')
                                         except Exception as ex:
                                             ui.notify(f'Error: {ex}', type='negative')
                                 
@@ -834,7 +905,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             # Gauge circular
                             with ui.column().classes('relative items-center justify-center'):
                                 tiempo_gauge = ui.circular_progress(
-                                    value=0.0111,  # 60/5400 para empezar en 1:00
+                                    value=0.0,
                                     min=0,
                                     max=1,
                                     size='180px',
@@ -843,7 +914,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 
                                 # Valor en el centro - NEGRO/BLANCO según tema
                                 with ui.element('div').classes('absolute inset-0 flex items-center justify-center'):
-                                    tiempo_display = ui.label('01:00').classes(
+                                    tiempo_display = ui.label('00:00').classes(
                                         'text-4xl font-bold text-gray-700 dark:text-gray-300'
                                     )
                             
@@ -851,15 +922,16 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             with ui.column().classes('gap-3 items-center'):
                                 # Fila 1: -10m, -1m, -10s
                                 with ui.row().classes('gap-3'):
-                                    ui.button('-10s', on_click=lambda: ajustar_tiempo(-10)).props(
+                                    ui.button('-10m', on_click=lambda: ajustar_tiempo(-600)).props(
                                         'outline size=md color=orange'
                                     ).classes('min-w-[75px]')
                                     ui.button('-1m', on_click=lambda: ajustar_tiempo(-60)).props(
                                         'outline size=md color=orange'
                                     ).classes('min-w-[75px]')
-                                    ui.button('-10m', on_click=lambda: ajustar_tiempo(-600)).props(
+                                    ui.button('-10s', on_click=lambda: ajustar_tiempo(-10)).props(
                                         'outline size=md color=orange'
                                     ).classes('min-w-[75px]')
+                                
                                 # Fila 2: +10s, +1m, +10m
                                 with ui.row().classes('gap-3'):
                                     ui.button('+10s', on_click=lambda: ajustar_tiempo(10)).props(
@@ -874,7 +946,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             
                             def ajustar_tiempo(delta_segundos):
                                 from utils.utils_tiempo import segundos_a_mmss
-                                nuevo_tiempo = max(1, min(5400, estado_manual['tiempo_segundos'] + delta_segundos))
+                                nuevo_tiempo = max(0, min(5400, estado_manual['tiempo_segundos'] + delta_segundos))
                                 estado_manual['tiempo_segundos'] = nuevo_tiempo
                                 tiempo_str = segundos_a_mmss(nuevo_tiempo)
                                 tiempo_display.text = tiempo_str
@@ -921,7 +993,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     if robot.manual_activo:
                                         try:
                                             robot.ajustar_manual(velocidad=valor)
-                                            ui.notify(f'Vel: {valor}', type='info', position='top-right')
                                         except Exception as ex:
                                             ui.notify(f'Error: {ex}', type='negative')
                                 
@@ -1588,22 +1659,33 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     # Temperatura
                     temp_slider.value = robot.manual_temperatura
                     temp_display.text = f"{robot.manual_temperatura}°C"
-                    temp_gauge.value = robot.manual_temperatura / 120.0  # ← GAUGE
+                    temp_gauge.value = robot.manual_temperatura / 120.0
                     
                     # Velocidad
                     vel_slider.value = robot.manual_velocidad
                     vel_display.text = str(robot.manual_velocidad)
-                    vel_gauge.value = robot.manual_velocidad / 10.0  # ← GAUGE
+                    vel_gauge.value = robot.manual_velocidad / 10.0
                     
                     # Tiempo
-                    tiempo_str = segundos_a_mmss(robot.manual_tiempo_restante)
+                    tiempo_restante = robot.manual_tiempo_restante
+                    tiempo_str = segundos_a_mmss(tiempo_restante)
                     tiempo_display.text = tiempo_str
-                    tiempo_gauge.value = robot.manual_tiempo_restante / 5400.0  # ← GAUGE
+                    tiempo_gauge.value = tiempo_restante / 5400.0
                     
                     # Actualizar estado_manual
                     estado_manual['temperatura'] = robot.manual_temperatura
                     estado_manual['velocidad'] = robot.manual_velocidad
-                    estado_manual['tiempo_segundos'] = robot.manual_tiempo_restante
+                    estado_manual['tiempo_segundos'] = tiempo_restante
+                    
+                elif ESTADO_BARRA.get('manual_estaba_activo', False):
+                    # El manual acaba de terminar - mostrar 00:00 una vez más
+                    tiempo_display.text = "00:00"
+                    tiempo_gauge.value = 0.0
+                    estado_manual['tiempo_segundos'] = 0
+                else:
+                    # Limpiar la flag de notificación cuando se cancela manualmente
+                    if 'manual_completado' in NOTIFICACIONES_MOSTRADAS:
+                        NOTIFICACIONES_MOSTRADAS.remove('manual_completado')
 
             # ============ RESTAURAR ESTADO MANUAL AL CARGAR ============
             def restaurar_estado_manual():
