@@ -11,9 +11,9 @@ def conectar() -> sqlite3.Connection:
     return sqlite3.connect(DB_PATH)
 
 
-# ======================================================
+# ======================
 # Creación de tablas
-# ======================================================
+# ======================
 
 def crear_tablas(conn: sqlite3.Connection) -> None:
     """Crea las tablas necesarias si no existen."""
@@ -106,9 +106,9 @@ def crear_tablas(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-# ======================================================
+# ========================================
 # Datos de fábrica (procesos y recetas)
-# ======================================================
+# ========================================
 
 def insertar_datos_base(conn: sqlite3.Connection) -> None:
     """
@@ -124,9 +124,9 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
         # Ya hay datos de fábrica, no hacemos nada
         return
 
-    # ============================
+    # ============================================================
     # Insertar PROCESOS de fábrica (SIN parámetros de ejecución)
-    # ============================
+    # ============================================================
     # Formato: (nombre, tipo, tipo_ejecucion, instrucciones)
 
     procesos_base = [
@@ -239,9 +239,9 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
     filas = cur.fetchall()
     procesos_por_nombre = {nombre: id_ for (id_, nombre) in filas}
 
-    # ============================
+    # =============================
     # Insertar RECETAS de fábrica
-    # ============================
+    # =============================
 
     recetas_definicion = [
         {
@@ -451,9 +451,9 @@ def insertar_datos_base(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-# ======================================================
+# ==================================
 # Configuración / estado del robot
-# ======================================================
+# ==================================
 
 def inicializar_configuracion(conn: sqlite3.Connection) -> None:
     """
@@ -472,9 +472,9 @@ def inicializar_configuracion(conn: sqlite3.Connection) -> None:
         conn.commit()
 
 
-# ======================================================
+# =====================
 # Reinicio de fábrica
-# ======================================================
+# =====================
 
 def reinicio_fabrica(conn: sqlite3.Connection) -> None:
     """
@@ -496,9 +496,9 @@ def reinicio_fabrica(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-# ======================================================
+# ===============================
 # Inicialización global de la BD
-# ======================================================
+# ===============================
 
 def inicializar_bd() -> None:
     """

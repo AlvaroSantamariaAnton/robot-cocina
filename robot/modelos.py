@@ -34,9 +34,9 @@ class ConflictoEjecucionError(Exception):
     pass
 
 
-# =========================
+# ===================
 # Mixin para origen
-# =========================
+# ===================
 
 class ConOrigen:
     """
@@ -59,9 +59,9 @@ class ConOrigen:
         """Devuelve True si la entidad fue creada por el usuario."""
         return self._origen == "usuario"
 
-# =========================
+# ====================
 # Modelos de dominio
-# =========================
+# ====================
 
 class ProcesoCocina(ABC, ConOrigen):
     """
@@ -80,7 +80,7 @@ class ProcesoCocina(ABC, ConOrigen):
         instrucciones: Optional[str],
         origen: str = "base",
     ) -> None:
-        super().__init__(origen=origen)  # ← Llama al mixin
+        super().__init__(origen=origen)
         self._id = id_
         self._nombre = nombre
         self._tipo = tipo
@@ -310,9 +310,9 @@ class RecetaUsuario(Receta):
         return True
 
 
-# =========================
+# ===================
 # Estados del Robot
-# =========================
+# ===================
 
 class EstadoRobot:
     """Enum simulado de estados del robot."""
@@ -324,9 +324,9 @@ class EstadoRobot:
     ERROR = "ERROR"
 
 
-# =========================
+# =======================================
 # Estrategia de Ejecución (Polimorfismo)
-# =========================
+# =======================================
 
 class EstrategiaEjecucion(ABC):
     """
@@ -386,15 +386,15 @@ class EjecucionManual(EstrategiaEjecucion):
         return f"Manual: {self._temperatura}°C, Vel {self._velocidad}, {segundos_a_mmss(self._tiempo)}"
 
 
-# =========================
+# =================
 # Robot de Cocina
-# =========================
+# =================
 
 class RobotCocina:
     """
     Controla el estado del robot y la ejecución de recetas o cocción manual.
     
-    CAMBIOS PRINCIPALES:
+    Características añadidas:
     - Añade soporte para modo manual con temporizador
     - Política de preempción: solo una ejecución activa a la vez
     - Ajustes en caliente durante cocción manual
@@ -414,7 +414,7 @@ class RobotCocina:
         self._lock = threading.Lock()
         self._callback_actualizacion: Optional[Callable] = None
 
-        # Ejecución de recetas (existente)
+        # Ejecución de recetas
         self._receta_actual: Optional[Receta] = None
         self._progreso = 0.0
         self._indice_paso_actual = 0
@@ -424,7 +424,7 @@ class RobotCocina:
         self._pausado = False
         self._confirmado = False
 
-        # Ejecución manual (NUEVO)
+        # Ejecución manual
         self._manual_activo = False
         self._manual_temperatura = 0
         self._manual_velocidad = 0
@@ -437,7 +437,7 @@ class RobotCocina:
         # Estrategia de ejecución actual
         self._estrategia_actual: Optional[EstrategiaEjecucion] = None
 
-    # ===== PROPIEDADES PÚBLICAS (existentes) =====
+    # ===== PROPIEDADES PÚBLICAS =====
 
     @property
     def estado(self) -> str:
@@ -471,7 +471,7 @@ class RobotCocina:
         with self._lock:
             return self._segundo_en_paso
 
-    # ===== PROPIEDADES PARA MODO MANUAL (NUEVO) =====
+    # ===== PROPIEDADES PARA MODO MANUAL =====
 
     @property
     def manual_activo(self) -> bool:
@@ -608,7 +608,7 @@ class RobotCocina:
             self._confirmado = False
             self._notificar_cambio()
 
-    # ===== INICIAR COCCIÓN MANUAL (NUEVO) =====
+    # ===== INICIAR COCCIÓN MANUAL =====
 
     def iniciar_manual(
         self, 
@@ -694,7 +694,7 @@ class RobotCocina:
             self._notificar_cambio()
             self._hilo_manual.start()
 
-    # ===== AJUSTAR PARÁMETROS EN CALIENTE (NUEVO) =====
+    # ===== AJUSTAR PARÁMETROS EN CALIENTE =====
 
     def ajustar_manual(
         self,
@@ -767,7 +767,7 @@ class RobotCocina:
         """
         with self._lock:
             if self._estado in (EstadoRobot.COCINANDO, EstadoRobot.PAUSADO, 
-                               EstadoRobot.ESPERA, EstadoRobot.ESPERANDO_CONFIRMACION):
+                                EstadoRobot.ESPERA, EstadoRobot.ESPERANDO_CONFIRMACION):
                 # Cancelar receta
                 self._parar = True
                 self._pausado = False
@@ -859,7 +859,7 @@ class RobotCocina:
             self._notificar_cambio()
             self._hilo_coccion.start()
 
-    # ===== HILO DE COCCIÓN MANUAL (NUEVO) =====
+    # ===== HILO DE COCCIÓN MANUAL =====
 
     def _ejecutar_manual_en_hilo(self) -> None:
         """
@@ -913,7 +913,7 @@ class RobotCocina:
                 self._estrategia_actual = None
                 self._notificar_cambio()
 
-    # ===== HILO DE COCCIÓN DE RECETAS (existente, sin cambios) =====
+    # ===== HILO DE COCCIÓN DE RECETAS =====
 
     def _ejecutar_receta_en_hilo(self) -> None:
         """
@@ -921,8 +921,6 @@ class RobotCocina:
         Guarda en qué paso y segundo va, para poder reanudar.
         
         Los pasos manuales pausan automáticamente y esperan confirmación del usuario.
-        
-        CAMBIO IMPORTANTE: Ahora usa paso.tiempo_segundos en lugar de proceso.tiempo_segundos
         """
         try:
             with self._lock:
@@ -982,7 +980,6 @@ class RobotCocina:
                     continue
 
                 # ===== PASO AUTOMÁTICO =====
-                # CAMBIO: Ahora leemos de paso.tiempo_segundos
                 duracion = max(1, paso.tiempo_segundos or 1)
 
                 # Ejecutar los "segundos" de este paso

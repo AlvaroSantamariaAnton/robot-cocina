@@ -7,8 +7,8 @@ from robot.modelos import (
     EstadoRobot,
     RobotApagadoError,
     RecetaNoSeleccionadaError,
-    ModoManualError,           # NUEVO
-    ConflictoEjecucionError,   # NUEVO
+    ModoManualError,
+    ConflictoEjecucionError,
 )
 from robot import servicios
 from utils.utils_tiempo import mmss_a_segundos, segundos_a_mmss
@@ -127,7 +127,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
 
     RECETAS_DISPONIBLES: Dict[str, object] = {}
     ULTIMA_RECETA_SELECCIONADA: dict[str, Optional[str]] = {'label': None}
-    ESTADO_RECETA = {'nombre': '(ninguna)'}  # ← AGREGAR ESTA LÍNEA
+    ESTADO_RECETA = {'nombre': '(ninguna)'}
     ESTADO_BARRA = {
         'completada': False,
         'ultimo_progreso': 0.0,
@@ -142,7 +142,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
         'receta_label': None
     }
 
-    NOTIFICACIONES_MOSTRADAS = set()  # IDs de recetas ya notificadas
+    NOTIFICACIONES_MOSTRADAS = set()
 
     def construir_etiquetas_recetas() -> List[str]:
         RECETAS_DISPONIBLES.clear()
@@ -540,7 +540,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 # Card Selector de receta
                 card_receta = ui.card().classes(_card_classes())
                 with card_receta:
-                    # ⭐ Añadir position relative al contenedor principal
+                    # Añadir position relative al contenedor principal
                     with ui.column().classes('p-6 gap-4 h-full flex flex-col justify-between relative'):
                         with ui.row().classes('items-center justify-between'):
                             ui.icon('menu_book', size='md').classes('text-indigo-600 dark:text-indigo-400')
@@ -559,7 +559,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             boton_actualizar = ui.button('Actualizar Lista', on_click=lambda: refrescar_recetas(), color='indigo').props('outline icon=refresh')
                             boton_nueva = ui.button('Nueva Receta', on_click=lambda: ui.navigate.to('/recetas'), color='green').props('outline icon=add_circle')
 
-                        # ⭐ Mensaje superpuesto con position absolute
+                        # Mensaje superpuesto con position absolute
                         mensaje_modo_manual = ui.card().classes(
                             'absolute inset-0 m-4 flex items-center justify-center '
                             'bg-amber-50/95 dark:bg-amber-900/95 backdrop-blur-sm '
@@ -838,7 +838,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 'outline color=red icon=stop'
                             ).classes('w-full')
 
-            # ============ CONTROLES MANUALES CON GAUGES (ancho completo) ============
+            # ============ CONTROLES MANUALES CON GAUGES ============
             card_controles_manual = ui.card().classes(
                 'w-full !bg-gradient-to-br !from-slate-50 !to-gray-100 '
                 'dark:!from-gray-800 dark:!to-gray-900 '
@@ -940,7 +940,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             
                             # Botones de ajuste (2 filas)
                             with ui.column().classes('gap-3 items-center'):
-                                # Fila 1: -10m, -1m, -10s
+                                # Fila 1: -10s, -1m, -10m
                                 with ui.row().classes('gap-3'):
                                     ui.button('-10m', on_click=lambda: ajustar_tiempo(-600)).props(
                                         'outline size=md color=orange'
@@ -1392,7 +1392,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             break
 
                 if receta_mostrada:
-                    ESTADO_RECETA['nombre'] = receta_mostrada.nombre  # ← CAMBIAR de receta_label.text
+                    ESTADO_RECETA['nombre'] = receta_mostrada.nombre
                     
                     if getattr(receta_mostrada, 'ingredientes', None):
                         html_ings = '<div class="space-y-2">'
@@ -1413,9 +1413,9 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     # Mostrar pasos de la receta
                     renderizar_pasos_receta(receta_mostrada)
                 else:
-                    ESTADO_RECETA['nombre'] = "(ninguna)"  # ← CAMBIAR de receta_label.text
+                    ESTADO_RECETA['nombre'] = "(ninguna)"
                     ingredientes_expansion.set_visibility(False)
-                    pasos_expansion.set_visibility(False)  # ← AGREGAR
+                    pasos_expansion.set_visibility(False)
 
                 select_receta.update()
                 ui.notify('Recetas actualizadas', type='info')
@@ -1471,7 +1471,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                 prog_actual = float(getattr(robot, 'progreso', 0.0) or 0.0)
                 estado_anterior = ESTADO_BARRA.get('ultimo_estado')
 
-                # ✅ GUARDAR información del paso actual cuando hay una receta activa
+                # GUARDAR información del paso actual cuando hay una receta activa
                 if robot.receta_actual is not None and estado_actual in (
                     EstadoRobot.COCINANDO,
                     EstadoRobot.ESPERANDO_CONFIRMACION,
@@ -1480,7 +1480,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     ESTADO_BARRA['ultimo_paso_index'] = robot.indice_paso_actual
                     ESTADO_BARRA['total_pasos_receta'] = len(robot.receta_actual.pasos)
 
-                # ✅ Detectar si completamos el último paso
+                # Detectar si completamos el último paso
                 estaba_en_ultimo_paso = (
                     ESTADO_BARRA.get('total_pasos_receta', 0) > 0
                     and ESTADO_BARRA.get('ultimo_paso_index', -1) >= ESTADO_BARRA.get('total_pasos_receta', 0) - 1
@@ -1499,8 +1499,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             )
                             and prog_actual == 0.0
                             and ESTADO_BARRA.get('ultimo_progreso', 0.0) > 0.0
-                        ) or                                              # ← AGREGAR or
-                        # ✅ Condición 3 (NUEVA):                          ← AGREGAR todo esto
+                        ) or
+
                         (                                                  
                             estado_anterior == EstadoRobot.ESPERANDO_CONFIRMACION
                             and estaba_en_ultimo_paso
@@ -1818,9 +1818,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 ui.label('Origen:').classes('font-semibold')
                                 origen_texto = 'Fábrica' if proceso.origen == 'base' else 'Usuario'
                                 ui.label(origen_texto).classes('text-gray-600 dark:text-gray-400')
-                        
-                        # CAMBIO: Ya NO se muestran parámetros numéricos
-                        # Solo mostramos instrucciones si existen
 
                         # Mensaje informativo
                         ui.separator()
@@ -2405,7 +2402,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             {'name': 'ord', 'label': '#', 'field': 'ord','align': 'left'},
                             {'name': 'nom', 'label': 'Proceso', 'field': 'nom','align': 'left'},
                             {'name': 'tipo', 'label': 'Tipo', 'field': 'tipo','align': 'left'},
-                            {'name': 'params', 'label': 'Parámetros', 'field': 'params', 'align': 'right'},  # ← CAMBIADO
+                            {'name': 'params', 'label': 'Parámetros', 'field': 'params', 'align': 'right'},
                             {'name': 'acciones', 'label': 'Acciones', 'field': 'acciones'},
                         ],
                         rows=[]

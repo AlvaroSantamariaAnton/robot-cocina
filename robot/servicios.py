@@ -9,9 +9,9 @@ from .modelos import (
 from data.init_db import conectar, reinicio_fabrica, inicializar_bd
 
 
-# ======================================================
+# =============================
 # Funciones internas de ayuda
-# ======================================================
+# =============================
 
 def _fila_a_proceso_base(fila: Tuple) -> ProcesoCocina:
     """
@@ -69,9 +69,9 @@ def _fila_a_proceso_usuario(fila: Tuple) -> ProcesoCocina:
         )
 
 
-# ======================================================
+# =============
 # PROCESOS
-# ======================================================
+# =============
 
 def cargar_procesos_base() -> List[ProcesoCocina]:
     """
@@ -168,9 +168,6 @@ def crear_proceso_usuario(
     """
     Crea un nuevo proceso en la tabla procesos_usuario y devuelve el objeto ProcesoCocina.
     
-    CAMBIO: Ya NO acepta temperatura, tiempo_segundos, velocidad.
-    Esos parámetros ahora van en los pasos de las recetas.
-    
     No se comprueba aquí nombres duplicados: esto se controla en la capa de UI.
     """
     conn = conectar()
@@ -237,9 +234,9 @@ def eliminar_proceso_usuario(id_proceso: int) -> None:
         conn.close()
 
 
-# ======================================================
+# ==============
 # RECETAS
-# ======================================================
+# ==============
 
 def _cargar_recetas_generico(
     tabla_recetas: str,
@@ -249,9 +246,6 @@ def _cargar_recetas_generico(
 ) -> List[Receta]:
     """
     Función interna para cargar recetas y convertirlas en objetos Receta.
-    
-    CAMBIO IMPORTANTE: Ahora lee temperatura, tiempo_segundos, velocidad, instrucciones
-    desde las tablas de PASOS, no de PROCESOS.
     
     Parámetros:
         tabla_recetas: 'recetas_base' o 'recetas_usuario'
@@ -459,8 +453,6 @@ def crear_receta_usuario(
     """
     Crea una nueva receta de usuario.
 
-    CAMBIO IMPORTANTE: Ahora acepta pasos con parámetros de ejecución.
-
     Parámetros:
         nombre: nombre de la receta
         descripcion: texto descriptivo
@@ -625,9 +617,9 @@ def eliminar_receta_usuario(id_receta: int) -> None:
         conn.close()
 
 
-# ======================================================
+# ===================================
 # Reinicio de fábrica (envoltura)
-# ======================================================
+# ===================================
 
 def reinicio_de_fabrica() -> None:
     """
@@ -642,9 +634,9 @@ def reinicio_de_fabrica() -> None:
         conn.close()
 
 
-# ======================================================
+# ===================================
 # Inicialización de base de datos
-# ======================================================
+# ===================================
 
 def inicializar_bd_si_es_necesario() -> None:
     """
