@@ -754,7 +754,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
             )
             
             with card_controles_manual:
-                with ui.column().classes('p-8 gap-6'):
+                with ui.column().classes('p-8 gap-6 w-full'):
                     # ===== HEADER =====
                     with ui.row().classes('items-center justify-between w-full'):
                         with ui.row().classes('items-center gap-3'):
@@ -771,7 +771,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     }
                     
                     # ===== GRID DE GAUGES (3 columnas) =====
-                    with ui.element('div').classes('grid grid-cols-1 md:grid-cols-3 gap-8 w-full'):
+                    with ui.element('div').classes('grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl mx-auto'):
                         
                         # ========== TEMPERATURA ==========
                         with ui.column().classes('items-center gap-4'):
@@ -786,7 +786,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     max=1,
                                     size='180px',
                                     show_value=False
-                                ).props('color=red thickness=0.15 track-color=grey-3').classes('mb-4')
+                                ).props('color=red thickness=0.15 track-color=grey-4').classes('mb-4')
                                 
                                 # Valor en el centro - NEGRO/BLANCO según tema
                                 with ui.element('div').classes('absolute inset-0 flex items-center justify-center'):
@@ -794,8 +794,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                         'text-4xl font-bold text-gray-700 dark:text-gray-300'
                                     )
                             
-                            # Slider debajo del gauge
-                            with ui.row().classes('items-center gap-2 w-full max-w-xs'):
+                            # Slider debajo del gauge con botones horizontales
+                            with ui.row().classes('items-center gap-3 w-full justify-center'):
                                 ui.button(icon='remove', on_click=lambda: ajustar_temp(-5)).props(
                                     'flat dense round size=sm color=red'
                                 )
@@ -816,7 +816,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 temp_slider = ui.slider(
                                     min=0, max=120, step=5, value=0,
                                     on_change=on_temp_change
-                                ).props('color=red').classes('flex-grow')
+                                ).props('color=red').classes('w-48')
                                 
                                 ui.button(icon='add', on_click=lambda: ajustar_temp(5)).props(
                                     'flat dense round size=sm color=red'
@@ -839,7 +839,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     max=1,
                                     size='180px',
                                     show_value=False
-                                ).props('color=orange thickness=0.15 track-color=grey-3').classes('mb-4')
+                                ).props('color=orange thickness=0.15 track-color=grey-4').classes('mb-4')
                                 
                                 # Valor en el centro - NEGRO/BLANCO según tema
                                 with ui.element('div').classes('absolute inset-0 flex items-center justify-center'):
@@ -848,30 +848,29 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     )
                             
                             # Botones de ajuste (2 filas)
-                            with ui.column().classes('gap-2 items-center'):
+                            with ui.column().classes('gap-3 items-center'):
                                 # Fila 1: -10m, -1m, -10s
-                                with ui.row().classes('gap-2'):
-                                    ui.button('-10m', on_click=lambda: ajustar_tiempo(-600)).props(
-                                        'outline size=sm color=orange'
-                                    ).classes('min-w-[60px]')
-                                    ui.button('-1m', on_click=lambda: ajustar_tiempo(-60)).props(
-                                        'outline size=sm color=orange'
-                                    ).classes('min-w-[60px]')
+                                with ui.row().classes('gap-3'):
                                     ui.button('-10s', on_click=lambda: ajustar_tiempo(-10)).props(
-                                        'outline size=sm color=orange'
-                                    ).classes('min-w-[60px]')
-                                
+                                        'outline size=md color=orange'
+                                    ).classes('min-w-[75px]')
+                                    ui.button('-1m', on_click=lambda: ajustar_tiempo(-60)).props(
+                                        'outline size=md color=orange'
+                                    ).classes('min-w-[75px]')
+                                    ui.button('-10m', on_click=lambda: ajustar_tiempo(-600)).props(
+                                        'outline size=md color=orange'
+                                    ).classes('min-w-[75px]')
                                 # Fila 2: +10s, +1m, +10m
-                                with ui.row().classes('gap-2'):
+                                with ui.row().classes('gap-3'):
                                     ui.button('+10s', on_click=lambda: ajustar_tiempo(10)).props(
-                                        'unelevated size=sm color=orange'
-                                    ).classes('min-w-[60px]')
+                                        'unelevated size=md color=orange'
+                                    ).classes('min-w-[75px]')
                                     ui.button('+1m', on_click=lambda: ajustar_tiempo(60)).props(
-                                        'unelevated size=sm color=orange'
-                                    ).classes('min-w-[60px]')
+                                        'unelevated size=md color=orange'
+                                    ).classes('min-w-[75px]')
                                     ui.button('+10m', on_click=lambda: ajustar_tiempo(600)).props(
-                                        'unelevated size=sm color=orange'
-                                    ).classes('min-w-[60px]')
+                                        'unelevated size=md color=orange'
+                                    ).classes('min-w-[75px]')
                             
                             def ajustar_tiempo(delta_segundos):
                                 from utils.utils_tiempo import segundos_a_mmss
@@ -899,7 +898,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                     max=1,
                                     size='180px',
                                     show_value=False
-                                ).props('color=blue thickness=0.15 track-color=grey-3').classes('mb-4')
+                                ).props('color=blue thickness=0.15 track-color=grey-4').classes('mb-4')
                                 
                                 # Valor en el centro - NEGRO/BLANCO según tema
                                 with ui.element('div').classes('absolute inset-0 flex items-center justify-center'):
@@ -907,8 +906,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                         'text-4xl font-bold text-gray-700 dark:text-gray-300'
                                     )
                             
-                            # Slider debajo del gauge
-                            with ui.row().classes('items-center gap-2 w-full max-w-xs'):
+                            # Slider debajo del gauge con botones horizontales
+                            with ui.row().classes('items-center gap-3 w-full justify-center'):
                                 ui.button(icon='remove', on_click=lambda: ajustar_vel(-1)).props(
                                     'flat dense round size=sm color=blue'
                                 )
@@ -929,7 +928,7 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 vel_slider = ui.slider(
                                     min=0, max=10, step=1, value=0,
                                     on_change=on_vel_change
-                                ).props('color=blue').classes('flex-grow')
+                                ).props('color=blue').classes('w-48')
                                 
                                 ui.button(icon='add', on_click=lambda: ajustar_vel(1)).props(
                                     'flat dense round size=sm color=blue'
