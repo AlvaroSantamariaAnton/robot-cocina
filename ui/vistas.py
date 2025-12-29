@@ -2580,19 +2580,23 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 pasos=pasos_guardar
                             )
 
-                            ui.notify('Receta creada correctamente', type='positive')
-                            input_nombre_receta.value = ''
-                            input_desc_receta.value = ''
-                            ingredientes_temp.clear()
-                            pasos_temp.clear()
-                            tabla_ings.rows = []
-                            tabla_pasos.rows = []
-                            tabla_ings.update()
-                            tabla_pasos.update()
-                            refrescar_recetas()
-                            limpiar_estado_formulario()
                         except Exception as ex:
+                            # Si hay ERROR al guardar, NO resetear nada para que el usuario mantenga sus datos
                             ui.notify(f'Error al guardar: {ex}', type='negative')
+                            return  # Salir sin resetear los campos
+                        
+                        # SOLO si llegamos aquí (sin errores), resetear todo el formulario
+                        ui.notify('Receta creada correctamente', type='positive')
+                        input_nombre_receta.value = ''
+                        input_desc_receta.value = ''
+                        ingredientes_temp.clear()
+                        pasos_temp.clear()
+                        tabla_ings.rows = []
+                        tabla_pasos.rows = []
+                        tabla_ings.update()
+                        tabla_pasos.update()
+                        refrescar_recetas()
+                        limpiar_estado_formulario()
 
                     ui.button('LIMPIAR FORMULARIO', on_click=lambda: [
                         setattr(input_nombre_receta, 'value', ''),

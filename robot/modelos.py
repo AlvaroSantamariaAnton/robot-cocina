@@ -682,6 +682,9 @@ class RobotCocina:
             self._manual_parar = False
             self._manual_pausado = False
             
+            # Limpiar receta actual al entrar en modo manual
+            self._receta_actual = None
+            
             # Establecer estrategia y estado
             self._estrategia_actual = EjecucionManual(temperatura, velocidad, tiempo)
             self._estado = EstadoRobot.COCINANDO
@@ -878,6 +881,7 @@ class RobotCocina:
                         if self._estado != EstadoRobot.APAGADO:
                             self._estado = EstadoRobot.ESPERA
                         self._estrategia_actual = None
+                        self._receta_actual = None
                         self._notificar_cambio()
                         return
                     
@@ -901,6 +905,7 @@ class RobotCocina:
                         if self._estado != EstadoRobot.APAGADO:
                             self._estado = EstadoRobot.ESPERA
                         self._estrategia_actual = None
+                        self._receta_actual = None
                         self._notificar_cambio()
                         return
                         
@@ -911,6 +916,7 @@ class RobotCocina:
                     self._estado = EstadoRobot.ERROR
                 self._reset_estado_manual()
                 self._estrategia_actual = None
+                self._receta_actual = None
                 self._notificar_cambio()
 
     # ===== HILO DE COCCIÓN DE RECETAS =====
@@ -1019,6 +1025,7 @@ class RobotCocina:
                     self._estado = EstadoRobot.ESPERA
                     self._reset_progreso_y_posicion()
                     self._estrategia_actual = None
+                    self._receta_actual = None
                     self._notificar_cambio()
 
         except ProcesoInterrumpidoError:
@@ -1027,6 +1034,7 @@ class RobotCocina:
                     self._estado = EstadoRobot.ESPERA
                     self._reset_progreso_y_posicion()
                     self._estrategia_actual = None
+                    self._receta_actual = None
                     self._notificar_cambio()
         except Exception:
             with self._lock:
@@ -1034,6 +1042,7 @@ class RobotCocina:
                 if self._estado != EstadoRobot.APAGADO:
                     self._estado = EstadoRobot.ERROR
                 self._estrategia_actual = None
+                self._receta_actual = None
                 self._notificar_cambio()
 
     # ===== NOTIFICAR CAMBIOS =====

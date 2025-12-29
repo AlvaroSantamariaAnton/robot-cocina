@@ -306,14 +306,25 @@ def _cargar_recetas_generico(
                 (id_receta, orden, paso_temp, paso_tiempo, paso_vel, paso_instr,
                  pid, pnombre, ptipo, ptipo_ej, proc_instr, origen_proc) = fila
                 
-                proceso = ProcesoCocina(
-                    id_=pid,
-                    nombre=pnombre,
-                    tipo=ptipo,
-                    tipo_ejecucion=ptipo_ej,
-                    instrucciones=proc_instr,
-                    origen=origen_proc,
-                )
+                # Polimorfismo: Instanciar la subclase correcta según tipo_ejecucion
+                if ptipo_ej == "manual":
+                    proceso = ProcesoManual(
+                        id_=pid,
+                        nombre=pnombre,
+                        tipo=ptipo,
+                        tipo_ejecucion=ptipo_ej,
+                        instrucciones=proc_instr,
+                        origen=origen_proc,
+                    )
+                else:
+                    proceso = ProcesoAutomatico(
+                        id_=pid,
+                        nombre=pnombre,
+                        tipo=ptipo,
+                        tipo_ejecucion=ptipo_ej,
+                        instrucciones=proc_instr,
+                        origen=origen_proc,
+                    )
                 paso = PasoReceta(
                     orden=orden,
                     proceso=proceso,
