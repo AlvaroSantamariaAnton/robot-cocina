@@ -51,7 +51,7 @@ def _crear_navegacion(robot: RobotCocina, refrescar_callback=None):
             with ui.row().classes('items-center gap-3 mb-6 pb-4 border-b border-indigo-200 dark:border-gray-700'):
                 ui.icon('soup_kitchen', size='xl').classes('text-indigo-600 dark:text-indigo-400')
                 with ui.column().classes('gap-0'):
-                    ui.label('Robot Cocina').classes('text-xl font-bold text-gray-800 dark:text-white')
+                    ui.label('Robot de Cocina').classes('text-xl font-bold text-gray-800 dark:text-white')
                     ui.label('Sistema de Control').classes('text-xs text-gray-600 dark:text-gray-400')
 
             # Items de navegación
@@ -406,7 +406,8 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 except Exception as ex:
                                     ui.notify(f'Error al encender: {ex}', type='negative')
                                     e.value = False  # Revertir switch
-                                    return                                icon_power.classes(remove='text-red-600')
+                                    return
+                                icon_power.classes(remove='text-red-600')
                                 icon_power.classes(add='text-green-600')
                                 ESTADO_BARRA['completada'] = False
                                 banner_apagado.set_visibility(False)
