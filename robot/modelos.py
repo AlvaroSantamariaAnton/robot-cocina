@@ -424,6 +424,10 @@ class RobotCocina:
         self._pausado = False
         self._confirmado = False
 
+        # TRACKING DE RECETA COMPLETADA
+        self._receta_completada = False
+        self._nombre_receta_completada: Optional[str] = None
+
         # Ejecución manual
         self._manual_activo = False
         self._manual_temperatura = 0
@@ -470,6 +474,19 @@ class RobotCocina:
     def segundo_en_paso(self) -> int:
         with self._lock:
             return self._segundo_en_paso
+
+    # PROPIEDADES PARA RECETA COMPLETADA
+    @property
+    def receta_completada(self) -> bool:
+        """Indica si se completó una receta recientemente."""
+        with self._lock:
+            return self._receta_completada
+
+    @property
+    def nombre_receta_completada(self) -> Optional[str]:
+        """Nombre de la receta que se completó."""
+        with self._lock:
+            return self._nombre_receta_completada
 
     # ===== PROPIEDADES PARA MODO MANUAL =====
 
@@ -589,6 +606,11 @@ class RobotCocina:
             self._reset_progreso_y_posicion()
             self._reset_estado_manual()
             self._estrategia_actual = None
+            
+            # Limpiar flag de receta completada
+            self._receta_completada = False
+            self._nombre_receta_completada = None
+            
             self._notificar_cambio()
 
     # ===== SELECCIÓN DE RECETA =====
@@ -784,6 +806,11 @@ class RobotCocina:
                 
                 self._estrategia_actual = None
                 self._estado = EstadoRobot.ESPERA
+                
+                # Limpiar flag de receta completada
+                self._receta_completada = False
+                self._nombre_receta_completada = None
+                
                 self._notificar_cambio()
 
     # ===== CONFIRMACIÓN DE PASO MANUAL =====
@@ -796,6 +823,20 @@ class RobotCocina:
         with self._lock:
             if self._estado == EstadoRobot.ESPERANDO_CONFIRMACION:
                 self._confirmado = True
+
+    # MÉTODO PARA LIMPIAR RECETA COMPLETADA
+    def limpiar_receta_completada(self) -> None:
+        """
+        Limpia el flag de receta completada y resetea el estado.
+        La UI llama esto cuando el usuario descarta la card de completado.
+        """
+        with self._lock:
+            self._receta_completada = False
+            self._nombre_receta_completada = None
+            self._reset_progreso_y_posicion()
+            self._estrategia_actual = None
+            self._receta_actual = None
+            self._notificar_cambio()
 
     # ===== INICIAR / REANUDAR COCCIÓN DE RECETAS =====
 
@@ -900,6 +941,15 @@ class RobotCocina:
                     
                     # Verificar finalización
                     if self._manual_tiempo_restante <= 0:
+                        # Notificar una vez más para asegurar que UI muestre 00:00
+                        self._notificar_cambio()
+                        # Esperar un momento para que la UI se actualice
+                        self._lock.release()
+                        try:
+                            time.sleep(0.2)  # 200ms para que la UI renderice
+                        finally:
+                            self._lock.acquire()
+                        
                         self._reset_estado_manual()
                         # Solo cambiar a ESPERA si NO está apagado
                         if self._estado != EstadoRobot.APAGADO:
@@ -1023,9 +1073,13 @@ class RobotCocina:
                 if self._estado != EstadoRobot.APAGADO:
                     self._progreso = 100.0
                     self._estado = EstadoRobot.ESPERA
-                    self._reset_progreso_y_posicion()
-                    self._estrategia_actual = None
-                    self._receta_actual = None
+                    
+                    # MARCAR RECETA COMPLETADA EN VEZ DE RESETEAR
+                    self._receta_completada = True
+                    self._nombre_receta_completada = self._receta_actual.nombre if self._receta_actual else None
+                    
+                    # NO reseteamos ni limpiamos nada aquí
+                    # La UI lo hará cuando el usuario descarte la card
                     self._notificar_cambio()
 
         except ProcesoInterrumpidoError:
