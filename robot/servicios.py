@@ -283,22 +283,26 @@ def _cargar_recetas_generico(
                        p.tiempo_segundos,
                        p.velocidad,
                        p.instrucciones,
-                       COALESCE(pr_user.id, pr_base.id) as id,
+                       CASE 
+                           WHEN p.id_proceso >= 10000 THEN p.id_proceso - 10000
+                           ELSE p.id_proceso 
+                       END as id,
                        COALESCE(pr_user.nombre, pr_base.nombre) as nombre,
                        COALESCE(pr_user.tipo, pr_base.tipo) as tipo,
                        COALESCE(pr_user.tipo_ejecucion, pr_base.tipo_ejecucion) as tipo_ejecucion,
                        COALESCE(pr_user.instrucciones, pr_base.instrucciones) as proc_instrucciones,
-                       CASE WHEN pr_user.id IS NOT NULL THEN 'usuario' ELSE 'base' END as origen
+                       CASE WHEN p.id_proceso >= 10000 THEN 'usuario' ELSE 'base' END as origen
                 FROM {tabla_pasos} AS p
                 LEFT JOIN procesos_usuario AS pr_user
-                    ON p.id_proceso = pr_user.id
+                    ON p.id_proceso >= 10000 AND pr_user.id = (p.id_proceso - 10000)
                 LEFT JOIN procesos_base AS pr_base
-                    ON p.id_proceso = pr_base.id
+                    ON p.id_proceso < 10000 AND pr_base.id = p.id_proceso
                 WHERE p.id_receta IN ({marcadores})
                 ORDER BY p.id_receta, p.orden;
                 """,
                 ids_recetas,
             )
+
             filas_pasos = cur.fetchall()
             # Procesar con origen dinámico
             pasos_por_receta: Dict[int, List[PasoReceta]] = {}
@@ -496,6 +500,7 @@ def crear_receta_usuario(
 
         # Insertar los pasos CON parámetros
         for orden, id_proceso, temp, tiempo, vel, instr in pasos:
+            # No modificar el id_proceso aquí, ya viene correcto
             cur.execute(
                 """
                 INSERT INTO pasos_receta_usuario 

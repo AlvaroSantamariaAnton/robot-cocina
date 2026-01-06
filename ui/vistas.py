@@ -2112,53 +2112,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                     input_nombre_receta = ui.input('Nombre de la receta').props('outlined dense').classes('w-full')
                     
                     input_desc_receta = ui.textarea('Descripción').props('outlined').classes('w-full')
-                    
-                    # ========== FUNCIONES DE PERSISTENCIA ==========
-                    def guardar_nombre_desc():
-                        """Guarda nombre y descripción en sessionStorage."""
-                        import json
-                        nombre_val = input_nombre_receta.value or ''
-                        desc_val = input_desc_receta.value or ''
-                        ui.run_javascript(f"sessionStorage.setItem('receta_nombre', {json.dumps(nombre_val)})")
-                        ui.run_javascript(f"sessionStorage.setItem('receta_descripcion', {json.dumps(desc_val)})")
-                    
-                    # Guardar cada vez que cambian los valores
-                    input_nombre_receta.on_value_change(lambda: guardar_nombre_desc())
-                    input_desc_receta.on_value_change(lambda: guardar_nombre_desc())
-                    
-                    # Timer adicional para guardar periódicamente (por si acaso)
-                    ui.timer(1.0, lambda: guardar_nombre_desc())
-
-                    
-                    # ========== FUNCIONES DE PERSISTENCIA ==========
-                    def guardar_ingredientes_ls():
-                        """Guarda ingredientes en sessionStorage."""
-                        import json
-                        ui.run_javascript(f"sessionStorage.setItem('receta_ingredientes', {repr(json.dumps(ingredientes_temp))})")  
-                    
-                    def guardar_pasos_ls():
-                        """Guarda pasos en sessionStorage."""
-                        import json
-                        pasos_serializable = [{
-                            'orden': p['orden'],
-                            'proceso_id': p['proceso'].id,
-                            'proceso_nombre': p['proceso'].nombre,
-                            'proceso_origen': getattr(p['proceso'], 'origen', 'usuario'),
-                            'temp': p['temp'],
-                            'tiempo': p['tiempo'],
-                            'vel': p['vel'],
-                            'instr': p['instr']
-                        } for p in pasos_temp]
-                        ui.run_javascript(f"sessionStorage.setItem('receta_pasos', {repr(json.dumps(pasos_serializable))})")  
-                    
-                    def limpiar_estado_formulario():
-                        """Limpia el estado guardado del formulario."""
-                        ui.run_javascript('''
-                            sessionStorage.removeItem('receta_nombre');
-                            sessionStorage.removeItem('receta_descripcion');
-                            sessionStorage.removeItem('receta_ingredientes');
-                            sessionStorage.removeItem('receta_pasos');
-                        ''')
 
                     with ui.row().classes('items-center justify-between'):
                         ui.icon('shopping_cart', size='md').classes('text-blue-500 dark:text-blue-400')
@@ -2201,7 +2154,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             ingredientes_temp.pop(idx)
                             actualizar_tabla_ings()
                             ui.notify('Ingrediente eliminado', type='info')
-                            guardar_ingredientes_ls()
 
                     tabla_ings.add_slot('body-cell-acciones', r'''
                         <q-td :props="props">
@@ -2212,90 +2164,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         </q-td>
                     ''')
                     tabla_ings.on('eliminar', lambda e: eliminar_ing(e.args))
-
-                    # ========== CARGAR DATOS GUARDADOS ==========
-                    def cargar_estado_inicial():
-                        """Carga nombre, descripción, ingredientes y pasos desde sessionStorage."""
-                        ui.run_javascript(f'''
-                            const nombre = sessionStorage.getItem('receta_nombre');
-                            if (nombre) {{
-                                try {{
-                                    emitEvent('cargar_nombre', JSON.parse(nombre));
-                                }} catch(e) {{
-                                    console.error('Error cargando nombre:', e);
-                                }}
-                            }}
-                            const desc = sessionStorage.getItem('receta_descripcion');
-                            if (desc) {{
-                                try {{
-                                    emitEvent('cargar_descripcion', JSON.parse(desc));
-                                }} catch(e) {{
-                                    console.error('Error cargando descripción:', e);
-                                }}
-                            }}
-                            const ings = sessionStorage.getItem('receta_ingredientes');
-                            if (ings) {{
-                                try {{
-                                    emitEvent('cargar_ingredientes', JSON.parse(ings));
-                                }} catch(e) {{
-                                    console.error('Error cargando ingredientes:', e);
-                                }}
-                            }}
-                            const pasos = sessionStorage.getItem('receta_pasos');
-                            if (pasos) {{
-                                try {{
-                                    emitEvent('cargar_pasos', JSON.parse(pasos));
-                                }} catch(e) {{
-                                    console.error('Error cargando pasos:', e);
-                                }}
-                            }}
-                        ''')
-                    
-                    def on_cargar_nombre(e):
-                        if e.args:
-                            input_nombre_receta.value = e.args
-                    
-                    def on_cargar_descripcion(e):
-                        if e.args:
-                            input_desc_receta.value = e.args
-                    
-                    def on_cargar_ingredientes(e):
-                        if e.args:
-                            ingredientes_temp.clear()
-                            ingredientes_temp.extend(e.args)
-                            actualizar_tabla_ings()
-                    
-                    def on_cargar_pasos(e):
-                        """Carga pasos guardados desde sessionStorage."""
-                        if e.args:
-                            pasos_temp.clear()
-                            for paso_data in e.args:
-                                # Buscar el proceso por ID
-                                proceso = None
-                                proceso_id = paso_data.get('proceso_id')
-                                
-                                # Buscar en procesos_map
-                                for label, proc in procesos_map.items():
-                                    if proc.id == proceso_id:
-                                        proceso = proc
-                                        break
-                                
-                                if proceso:
-                                    pasos_temp.append({
-                                        'orden': paso_data['orden'],
-                                        'proceso': proceso,
-                                        'temp': paso_data.get('temp'),
-                                        'tiempo': paso_data.get('tiempo'),
-                                        'vel': paso_data.get('vel'),
-                                        'instr': paso_data.get('instr')
-                                    })
-                            actualizar_tabla_pasos()
-                    
-                    ui.on('cargar_nombre', on_cargar_nombre)
-                    ui.on('cargar_descripcion', on_cargar_descripcion)
-                    ui.on('cargar_ingredientes', on_cargar_ingredientes)
-                    ui.on('cargar_pasos', on_cargar_pasos)
-                    ui.timer(0.5, lambda: cargar_estado_inicial(), once=True)
 
                     def anadir_ing():
                         if not ing_nombre.value:
@@ -2313,7 +2181,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         ing_cant.value = None
                         ing_unidad.value = ''
                         ing_nota.value = ''
-                        guardar_ingredientes_ls()
 
                     with ui.row().classes('items-center justify-between'):
                         ui.icon('list', size='md').classes('text-blue-600 dark:text-blue-400')
@@ -2454,7 +2321,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 paso_dict['orden'] = i + 1
                             actualizar_tabla_pasos()
                             ui.notify('Paso eliminado', type='info')
-                            guardar_pasos_ls()
 
                     tabla_pasos.add_slot('body-cell-acciones', r'''
                         <q-td :props="props">
@@ -2531,7 +2397,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                                 return
                         
                         actualizar_tabla_pasos()
-                        guardar_pasos_ls()
                         
                         # Limpiar inputs
                         select_proc.value = None
@@ -2554,9 +2419,15 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             # CAMBIO: Enviar parámetros con cada paso
                             pasos_guardar = []
                             for paso_dict in pasos_temp:
+                                proc = paso_dict['proceso']
+                                # Si es proceso de usuario, añadir offset de 10000
+                                id_proceso = proc.id
+                                if getattr(proc, 'origen', 'usuario') == 'usuario':
+                                    id_proceso += 10000
+                                
                                 pasos_guardar.append((
                                     paso_dict['orden'],
-                                    paso_dict['proceso'].id,
+                                    id_proceso,  # ← ID con offset si es usuario
                                     paso_dict['temp'],
                                     paso_dict['tiempo'],
                                     paso_dict['vel'],
@@ -2586,7 +2457,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         tabla_ings.update()
                         tabla_pasos.update()
                         refrescar_recetas()
-                        limpiar_estado_formulario()
 
                     ui.button('LIMPIAR FORMULARIO', on_click=lambda: [
                         setattr(input_nombre_receta, 'value', ''),
@@ -2595,7 +2465,6 @@ def registrar_vistas(robot: RobotCocina) -> None:
                         pasos_temp.clear(),
                         actualizar_tabla_ings(),
                         actualizar_tabla_pasos(),
-                        limpiar_estado_formulario(),
                         ui.notify('Formulario limpiado', type='info')
                     ]).props('outline color=orange icon=clear_all').classes('w-full')
 
