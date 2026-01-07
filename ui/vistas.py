@@ -944,13 +944,13 @@ def registrar_vistas(robot: RobotCocina) -> None:
                             with ui.column().classes('gap-3 items-center'):
                                 # Fila 1: -10s, -1m, -10m
                                 with ui.row().classes('gap-3'):
-                                    ui.button('-10m', on_click=lambda: ajustar_tiempo(-600)).props(
+                                    ui.button('-10s', on_click=lambda: ajustar_tiempo(-10)).props(
                                         'outline size=md color=orange'
                                     ).classes('min-w-[75px]')
                                     ui.button('-1m', on_click=lambda: ajustar_tiempo(-60)).props(
                                         'outline size=md color=orange'
                                     ).classes('min-w-[75px]')
-                                    ui.button('-10s', on_click=lambda: ajustar_tiempo(-10)).props(
+                                    ui.button('-10m', on_click=lambda: ajustar_tiempo(-600)).props(
                                         'outline size=md color=orange'
                                     ).classes('min-w-[75px]')
                                 
